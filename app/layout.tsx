@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "x-algorithm-audit",
+  title: "X Algorithm Audit",
   description:
     "Audita tu cuenta de X contra los pesos de ranking que xAI publicó en x-algorithm.",
 };
