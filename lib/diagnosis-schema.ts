@@ -5,8 +5,11 @@ export const DiagnosisRequestSchema = z.object({
   postCount: z.number().int().positive(),
   medianAlgoScore: z.number(),
   coverage: z.number().min(0).max(1),
-  /** Cobertura efectiva añadiendo pesos proxy (bookmarks como proxy de share_via_copy_link). */
-  approxCoverage: z.number().min(0).max(1),
+  /**
+   * Peso real del algoritmo que los proxies intentan estimar (20.0 de
+   * share_via_copy_link si el CSV trae bookmarks). No es un porcentaje.
+   */
+  proxiedWeight: z.number().min(0),
   findings: z
     .array(
       z.object({

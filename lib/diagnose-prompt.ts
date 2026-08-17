@@ -45,31 +45,34 @@ Los números ya están calculados. Nunca recalcules nada. Nunca inventes cifras,
 - Author diversity decay: el k-ésimo post del mismo autor en un slate se multiplica por (1 - 0.25) × 0.5^k + 0.25 (segundo post ≈ 62.5 %, tercero ≈ 43.75 %, suelo 25 %).
 
 ### Notas importantes sobre los datos de esta auditoría
-- Bookmarks del CSV se usa como proxy de share_via_copy_link (peso real 20.0, no observable). El peso proxy es 6.0, no es un peso del algoritmo. El peso real de bookmarks en el algoritmo es 0.0.
-- Shares del CSV se usa como proxy débil de share genérico.
-- New follows, Detail Expands y Profile visits también se incorporan.
-- ShareViaCopyLink real (peso 20.0), las replies mutuas exactas, el dwell real y ShareViaDm siguen sin ser observables. La cobertura del espacio de pesos positivos es parcial.
+- El campo \`coverage\` es la fracción del positive_sum (43.32) que se mide de verdad. Es el número honesto de cobertura y el único que debes citar como tal.
+- Bookmarks NO tiene peso en el algoritmo: no aparece en el struct ScoringWeights. (Distinto de ProfileClick, que sí está en el struct puesto a 0.0.) Esta auditoría lo usa como proxy de share_via_copy_link con un peso inventado de 6.0. Ese 6.0 es un juicio de quien construyó la herramienta, no un dato del código. El campo \`proxiedWeight\` indica cuánto vale en el algoritmo la señal que se está intentando estimar; NO es un porcentaje de cobertura y no se suma a \`coverage\`.
+- Las contribuciones proxy van en \`approxScore\`, separado de \`algoScore\`. Todas las comparaciones estadísticas de cohortes usan \`algoScore\`. Nunca presentes \`approxScore\` como el score del ranker.
+- Estas columnas del CSV sí usan el peso REAL del algoritmo, no son proxies: Replies (5.0), New follows (4.0), Share (2.0), Reposts (1.0), Likes (0.5), Detail Expands + Permalink Clicks (0.4, sumadas como una sola acción \`click\`), Url clicks (0.2) y Media views (0.05).
+- Profile visits NO se incorpora a ningún score, porque ProfileClick vale 0.0 en el algoritmo. Si el payload trae un hallazgo sobre señales de peso cero, dice justamente eso: optimizar visitas al perfil no mueve el ranking. No contradigas ese hallazgo.
+- Siguen sin ser observables: ShareViaCopyLink real (20.0), Quote salvo que el CSV venga enriquecido con quote_count, ShareViaDm, las replies de mutuos, el dwell real y todas las señales negativas.
 
 ### Estructura obligatoria del documento de salida (Markdown completo)
 
-# Diagnóstico completo de ranking algorítmico
-**Cuenta analizada** · Período cubierto por el CSV · Fecha del análisis
+# Diagnóstico de ranking algorítmico
+
+No pongas cabecera con nombre de cuenta, período ni fecha: el payload no contiene ninguno de esos datos y la regla 3 te prohíbe inventarlos.
 
 ## 1. Resumen ejecutivo
 - Estado general de la cuenta en 4-6 frases claras y directas.
 - Median AlgoScore y qué implica en la práctica.
-- Cobertura actual del espacio de pesos positivos (incluyendo el uso de Bookmarks como proxy).
+- Cobertura real del espacio de pesos positivos (el campo \`coverage\`). Si hay proxies, menciónalos aparte y como estimación, nunca sumados a la cobertura.
 - Los 3 problemas de mayor impacto esperado (ordenados por impacto real).
-- Una frase clara de "qué pasaría si se corrigen los principales cuellos de botella".
+- Una frase clara de "qué pasaría si se corrigen los principales cuellos de botella", sin prometer cifras concretas de mejora: no hay datos para cuantificarla.
 
 ## 2. Métricas globales de la cuenta
-Presenta de forma limpia y estructurada:
+Presenta de forma limpia y estructurada, usando solo lo que venga en el payload:
 - Número total de posts analizados
 - Median AlgoScore
-- Cobertura del score
-- Ratio global de replies vs likes (si aparece)
-- Uso de Bookmarks y Shares como proxies
-- Cualquier otra métrica agregada relevante que venga en el payload
+- Cobertura real (\`coverage\`)
+- Señal estimada por proxy (\`proxiedWeight\`), etiquetada como estimación
+- Ratio global de replies vs likes, si aparece en algún hallazgo
+- Cualquier otra métrica agregada que venga en el payload
 
 ## 3. Priorización de hallazgos por impacto esperado
 Ordena todos los hallazgos válidos (sin insufficientSample) de mayor a menor impacto real sobre el score futuro.
@@ -92,13 +95,16 @@ Para cada una:
 - Implicación clara para la estrategia de contenido, timing o formato
 
 ## 5. Posts de alto alcance con bajo score (alcance desperdiciado)
-- Cuántos posts hay en el decil alto de impresiones + cuartil bajo de AlgoScore.
+Incluye esta sección SOLO si el payload trae el hallazgo con id \`wasted-reach\`. Si no está, omite la sección entera y no la sustituyas por nada: significa que las impresiones no tienen dispersión suficiente para que "decil alto" signifique algo, o que no hay bastantes posts afectados.
+
+Si está:
+- Cuántos posts son, citando la evidencia del hallazgo.
 - Qué patrón dominante se observa en esos posts según la muestra.
 - Por qué son especialmente peligrosos (el ranker aprende que el contenido no convierte las impresiones en acciones de alto valor).
 - Recomendación concreta de revisión.
 
 ## 6. Reescrituras de posts del bucket "peor"
-Selecciona los 5-7 peores posts de la muestra (los de menor AlgoScore).
+Reescribe TODOS los posts del bucket \`"peor"\` de \`samplePosts\`, y ninguno más. Son 5 como máximo. No completes con posts de otros buckets: la regla 5 lo prohíbe.
 
 Para cada uno estructura así:
 
@@ -115,17 +121,19 @@ Para cada uno estructura así:
 
 ## 7. Limitaciones del análisis y sesgos
 Sé radicalmente transparente:
-- Cobertura actual del espacio de pesos positivos (incluyendo el beneficio de usar Bookmarks como proxy).
-- Señales de alto valor que siguen sin capturarse plenamente (ShareViaCopyLink real = 20.0, replies mutuas exactas, dwell real, ShareViaDm).
+- Cobertura real (\`coverage\`), dicha como lo que es: la fracción del positive_sum que se mide. El proxy de bookmarks NO la aumenta; usa un peso inventado de 6.0 para estimar una señal que vale 20.0, y nadie ha medido qué fracción de ella captura.
+- Señales de alto valor que no se capturan: ShareViaCopyLink real (20.0), Quote (5.0) salvo CSV enriquecido, ShareViaDm (5.0), replies de mutuos, dwell real y todas las negativas.
 - Qué no se puede afirmar con los datos actuales.
-- Riesgo de sobre-interpretar patrones empíricos de la propia cuenta (día de la semana, longitud, etc.).
+- Que las cohortes son patrones empíricos de esta cuenta, no reglas del algoritmo, y que correlación no es causalidad.
+- Que un score alto no garantiza distribución: el score es una entrada de un pipeline con retrieval, filtros de visibilidad y reranking.
 
-## 8. Plan de acción priorizado (próximos 30 días)
-Lista ordenada de 7-9 acciones concretas, de mayor a menor impacto esperado.
-Cada acción debe estar ligada explícitamente a uno o varios pesos del algoritmo y ser medible.
+## 8. Plan de acción priorizado
+Deriva las acciones EXCLUSIVAMENTE de los hallazgos válidos del payload: una o dos acciones por hallazgo, sin inventar acciones para rellenar. Si solo hay tres hallazgos, la lista tendrá cuatro o cinco acciones y estará bien así. Cada acción debe estar ligada a un peso concreto del algoritmo y ser verificable en el próximo export de Analytics.
+
+Prohibido: consejos genéricos de crecimiento que no salgan de un hallazgo ("publica más", "interactúa con tu comunidad", "usa mejores ganchos"), calendarios de publicación y cualquier promesa numérica de mejora.
 
 ## 9. Métricas de seguimiento recomendadas
-Qué ratios y números debería vigilar el dueño de la cuenta semanalmente o mensualmente para saber si realmente está mejorando el score algorítmico (no solo las vanity metrics). Incluye especialmente el uso de Bookmarks y el ratio replies/likes.
+Qué ratios debería vigilar el dueño de la cuenta en el próximo export para saber si mejora el score, y no solo las métricas de vanidad. Ciñete a ratios calculables desde el mismo CSV que produjo esta auditoría, y di explícitamente cuáles NO sirven como objetivo (visitas al perfil, por peso 0.0).
 
 ## 10. Conclusión
 3-5 frases finales directas sobre el potencial de mejora realista y el principal cuello de botella actual de la cuenta.
@@ -150,7 +158,7 @@ export function buildDiagnosisPayload(
     postCount: report.postCount,
     medianAlgoScore: report.medianAlgoScore,
     coverage: report.coverage,
-    approxCoverage: report.approxCoverage,
+    proxiedWeight: report.proxiedWeight,
     findings: report.findings,
     cohorts: report.cohorts.map((c) => ({
       id: c.id,

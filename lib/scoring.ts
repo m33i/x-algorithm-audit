@@ -111,8 +111,8 @@ export interface ScoreBreakdown {
   coverage: number;
   /**
    * Score aproximado que añade los pesos proxy (bookmarks como proxy de
-   * share_via_copy_link, etc.). No es el score del ranker; es una
-   * aproximación con mejor cobertura observacional.
+   * share_via_copy_link, etc.). No es el score del ranker: mezcla pesos
+   * transcritos con un peso inventado.
    */
   approxScore: number;
   /** approxScore × impresiones. */
@@ -120,11 +120,19 @@ export interface ScoreBreakdown {
   /** Contribuciones proxy, ordenadas de mayor a menor points. */
   proxyContributions: ProxyContribution[];
   /**
-   * Cobertura efectiva: (pesos reales observables + pesos proxy presentes)
-   * / POSITIVE_SUM. Refleja cuánto del positive_sum podemos estimar, aunque
-   * sea vía proxy.
+   * Peso REAL del algoritmo que los proxies presentes intentan estimar.
+   * Para el proxy de bookmarks son los 20.0 de share_via_copy_link.
+   *
+   * Deliberadamente NO es un porcentaje de cobertura. Sumar el peso proxy
+   * (6.0) al numerador de `coverage` mezclaría unidades: el 6.0 no es un
+   * componente de los 43.32 del denominador, así que el cociente no sería
+   * fracción de nada real e inflaría la cobertura con un número inventado.
+   *
+   * Este campo dice qué señal se está intentando estimar y cuánto vale esa
+   * señal en el algoritmo. Cuánto de ella captura el proxy es desconocido,
+   * y por eso no se convierte en porcentaje.
    */
-  approxCoverage: number;
+  proxiedWeight: number;
 }
 
 export function scorePost(row: PostRow): ScoreBreakdown {
@@ -167,12 +175,14 @@ export function scorePost(row: PostRow): ScoreBreakdown {
   // inobservables (hoy: bookmarks → share_via_copy_link).
   const proxyContributions: ProxyContribution[] = [];
   let approxScore = algoScore;
-  let proxyWeightPresent = 0;
+  // Peso REAL de las señales que estamos intentando estimar, no el peso
+  // proxy. Ver la nota en `proxiedWeight`.
+  let proxiedWeight = 0;
 
   for (const { label, column, proxies, weight } of PROXY) {
     const v = row[column];
     if (v === null) continue;
-    proxyWeightPresent += weight;
+    proxiedWeight += POSITIVE_WEIGHTS[proxies];
     if (v === 0) continue;
     const probability = v / row.impressions;
     const points = weight * probability;
@@ -190,7 +200,7 @@ export function scorePost(row: PostRow): ScoreBreakdown {
     approxScore,
     approxTotalScore: approxScore * row.impressions,
     proxyContributions,
-    approxCoverage: (observedWeight + proxyWeightPresent) / POSITIVE_SUM,
+    proxiedWeight,
   };
 }
 
@@ -210,20 +220,20 @@ export function datasetCoverage(rows: PostRow[]): number {
 }
 
 /**
- * Cobertura efectiva del dataset completo: añade los pesos proxy de las
- * señales presentes en al menos una fila. Refleja cuánto del positive_sum
- * podemos estimar, aunque sea vía proxy.
+ * Peso real del algoritmo que los proxies del dataset intentan estimar.
+ *
+ * No es una cobertura y no se suma a `datasetCoverage`: son magnitudes
+ * distintas. `datasetCoverage` dice qué fracción del positive_sum medimos;
+ * esto dice cuánto vale la señal que estamos aproximando a ciegas.
  */
-export function datasetApproxCoverage(rows: PostRow[]): number {
+export function datasetProxiedWeight(rows: PostRow[]): number {
   if (rows.length === 0) return 0;
 
   let weight = 0;
-  for (const { action, columns } of OBSERVABLE) {
-    const present = columns.some((col) => rows.some((r) => r[col] !== null));
-    if (present) weight += POSITIVE_WEIGHTS[action];
+  for (const { column, proxies } of PROXY) {
+    if (rows.some((r) => r[column] !== null)) {
+      weight += POSITIVE_WEIGHTS[proxies];
+    }
   }
-  for (const { column, weight: w } of PROXY) {
-    if (rows.some((r) => r[column] !== null)) weight += w;
-  }
-  return weight / POSITIVE_SUM;
+  return weight;
 }

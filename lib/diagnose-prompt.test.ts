@@ -86,15 +86,17 @@ describe("buildDiagnosisPayload", () => {
     expect(payload.findings).toEqual(report.findings);
   });
 
-  it("incluye approxCoverage además de coverage", () => {
+  it("incluye proxiedWeight además de coverage, y no los confunde", () => {
     const report = fixture();
     const posts = scoreAll(
       Array.from({ length: 20 }, (_, i) => post({ id: `x${i}`, likes: i })),
     );
     const payload = buildDiagnosisPayload(report, posts);
     expect(payload).toHaveProperty("coverage");
-    expect(payload).toHaveProperty("approxCoverage");
-    expect(payload.approxCoverage).toBeGreaterThanOrEqual(payload.coverage);
+    expect(payload).toHaveProperty("proxiedWeight");
+    // `coverage` es una fracción; `proxiedWeight` es un peso del algoritmo.
+    // Son magnitudes distintas y no deben sumarse ni compararse.
+    expect(payload.coverage).toBeLessThanOrEqual(1);
   });
 });
 

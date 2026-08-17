@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scorePost, datasetCoverage, datasetApproxCoverage, OBSERVABLE_MAX } from "./scoring";
+import { scorePost, datasetCoverage, datasetProxiedWeight, OBSERVABLE_MAX } from "./scoring";
 import { POSITIVE_SUM } from "./weights";
 import type { PostRow } from "./types";
 
@@ -167,35 +167,34 @@ describe("cobertura", () => {
     expect(scorePost(full).coverage).toBeCloseTo(0.3036, 3);
   });
 
-  it("approxCoverage añade el peso proxy de bookmarks cuando está presente", () => {
+  it("proxiedWeight reporta el peso REAL de la señal estimada, no el proxy", () => {
     const withBookmarks = post({
       impressions: 1000,
       likes: 1,
-      replies: 1,
-      reposts: 1,
-      shares: 1,
-      newFollows: 1,
-      detailExpands: 1,
-      urlClicks: 1,
-      mediaViews: 1,
       bookmarks: 1,
     });
-    // (13.15 + 6.0) / 43.32
-    expect(scorePost(withBookmarks).approxCoverage).toBeCloseTo(
-      (13.15 + 6.0) / POSITIVE_SUM,
-      10,
-    );
+    // share_via_copy_link vale 20.0 en el algoritmo. Ese es el peso de la
+    // señal que el proxy intenta estimar; el 6.0 del proxy no aparece aquí.
+    expect(scorePost(withBookmarks).proxiedWeight).toBe(20.0);
+    expect(scorePost(withBookmarks).proxiedWeight).not.toBe(6.0);
   });
 
-  it("approxCoverage no añade el proxy si bookmarks es null", () => {
+  it("el proxy NO infla la cobertura", () => {
+    const base = { impressions: 1000, likes: 1, replies: 1 };
+    const sinBookmarks = scorePost(post(base));
+    const conBookmarks = scorePost(post({ ...base, bookmarks: 500 }));
+    // `coverage` mide lo que se observa del algoritmo. Un proxy no observa
+    // nada nuevo: estima. Por eso la cobertura es idéntica con y sin él.
+    expect(conBookmarks.coverage).toBe(sinBookmarks.coverage);
+  });
+
+  it("proxiedWeight es 0 si no hay columna que alimente el proxy", () => {
     const withoutBookmarks = post({
       impressions: 1000,
       likes: 1,
       replies: 1,
     });
-    expect(scorePost(withoutBookmarks).approxCoverage).toBe(
-      scorePost(withoutBookmarks).coverage,
-    );
+    expect(scorePost(withoutBookmarks).proxiedWeight).toBe(0);
   });
 
   it("baja la cobertura cuando faltan columnas", () => {
@@ -215,16 +214,22 @@ describe("cobertura", () => {
     expect(datasetCoverage([])).toBe(0);
   });
 
-  it("datasetApproxCoverage añade proxies presentes en cualquier fila", () => {
+  it("datasetProxiedWeight reporta el peso real estimado por proxy", () => {
     const rows = [
       post({ id: "a", likes: 1, bookmarks: 1 }),
       post({ id: "b", replies: 1 }),
     ];
-    // (0.5 + 5.0 + 6.0) / 43.32
-    expect(datasetApproxCoverage(rows)).toBeCloseTo(11.5 / POSITIVE_SUM, 10);
+    // El proxy de bookmarks sustituye a share_via_copy_link, que vale 20.0.
+    expect(datasetProxiedWeight(rows)).toBe(20.0);
   });
 
-  it("datasetApproxCoverage es 0 sin filas", () => {
-    expect(datasetApproxCoverage([])).toBe(0);
+  it("datasetProxiedWeight no altera datasetCoverage", () => {
+    const conProxy = [post({ id: "a", likes: 1, bookmarks: 1 })];
+    const sinProxy = [post({ id: "a", likes: 1 })];
+    expect(datasetCoverage(conProxy)).toBe(datasetCoverage(sinProxy));
+  });
+
+  it("datasetProxiedWeight es 0 sin filas", () => {
+    expect(datasetProxiedWeight([])).toBe(0);
   });
 });

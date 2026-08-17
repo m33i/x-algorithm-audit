@@ -81,12 +81,21 @@ export const NEGATIVE_WEIGHTS = {
  * 43.32). Los proxies elevan la cobertura efectiva al añadir señales que el
  * algoritmo pondera pero que el CSV no desglosa.
  *
- * - bookmarks: peso real 0.0 en el algoritmo (no está en ScoringWeights),
- *   pero el CSV lo expone. Lo usamos como proxy de share_via_copy_link
- *   (peso real 20.0, inobservable). Guardar un post para leerlo o
- *   compartirlo después es una intención cercana a copy-link. Peso 6.0 =
- *   punto medio del rango 4 a 8 que sugiere el análisis de proxies
- *   disponibles. Es una aproximación, no una transcripción del código.
+ * - bookmarks: NO aparece en el struct `ScoringWeights`
+ *   (ranking_scorer.rs:18-58), así que no tiene peso en el algoritmo. Ojo a
+ *   la diferencia: `profile_click` sí está en el struct, puesto a 0.0; el
+ *   bookmark simplemente no está. El CSV de Analytics sí lo expone, y lo
+ *   usamos como proxy de share_via_copy_link (peso real 20.0, inobservable),
+ *   porque guardar un post para leerlo o compartirlo después es una
+ *   intención cercana a copiar el enlace.
+ *
+ *   El 6.0 es un JUICIO, no una medición ni una constante derivada de
+ *   ninguna fuente. Nadie ha medido qué fracción de share_via_copy_link
+ *   captura un bookmark. Se eligió por debajo del 20.0 que sustituye para
+ *   no sobreponderar una hipótesis, y por encima de los pesos de acciones
+ *   baratas (click 0.4) para reflejar que guardar señala intención alta.
+ *   Cualquiera puede discutirlo; lo que no se puede es presentarlo como
+ *   un dato del algoritmo.
  *
  * Los proxies se mantienen separados del score real (algoScore) y van en un
  * score aparte (approxScore). Las comparaciones estadísticas de cohortes

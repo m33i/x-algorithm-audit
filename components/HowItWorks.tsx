@@ -56,27 +56,34 @@ export function HowItWorks() {
           con la API), los DMs ni las señales negativas.
         </p>
         <p className="mt-3">
-          Esta herramienta añade dos proxies para acotar la parte inobservable:
+          Hay dos formas de reducir esa parte ciega, y conviene no
+          confundirlas:
         </p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>
-            <strong>Bookmarks</strong>, peso proxy 6.0, como sustituto de
-            share_via_copy_link. Guardar un post para leerlo o compartirlo
-            después es la intención más cercana que el CSV sí expone. No es un
-            peso del algoritmo: es una aproximación. El peso real de bookmarks
-            en el algoritmo es 0.0.
+            <strong>Quote count</strong> sí <em>aumenta</em> la cobertura: es
+            el peso real 5.0 del algoritmo, y se activa si enriqueces el CSV
+            con <code>public_metrics.quote_count</code> de la X API v2. Con esa
+            columna la cobertura sube del 30% al 42%. Sin ella, queda fuera.
           </li>
           <li>
-            <strong>Quote count</strong>, peso real 5.0, si enriqueces el CSV
-            con <code>public_metrics.quote_count</code> de la X API v2. Sin esa
-            columna, queda fuera del score.
+            <strong>Bookmarks</strong> <em>no</em> aumenta la cobertura: la
+            estima. El bookmark no aparece en el struct de pesos del
+            algoritmo, así que no tiene peso — ojo, eso es distinto de valer
+            0.0 como <code>profile_click</code>, que sí está en el struct
+            puesto a cero. Esta herramienta lo usa como sustituto de
+            share_via_copy_link con un peso de 6.0 <strong>inventado por
+            nosotros</strong>, porque guardar un post es la intención más
+            cercana que el CSV expone.
           </li>
         </ul>
         <p className="mt-3">
-          El AlgoScore se calcula solo con pesos transcritos del código de xAI.
-          El AlgoScore<sup>+</sup> añade los proxies y sube la cobertura
-          efectiva al ~44%. Las comparaciones estadísticas usan solo el
-          AlgoScore real, no el aproximado.
+          Ese 6.0 es un juicio, no una medición: nadie sabe qué fracción de
+          share_via_copy_link captura un bookmark. Por eso las contribuciones
+          proxy van en un AlgoScore<sup>+</sup> aparte, nunca se suman al
+          porcentaje de cobertura, y nunca entran en las comparaciones
+          estadísticas. Sumar un peso inventado a la cobertura la inflaría con
+          ficción, que es justo lo contrario de para qué existe esa cifra.
         </p>
       </div>
     </section>

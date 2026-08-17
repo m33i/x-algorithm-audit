@@ -44,15 +44,21 @@ export function Report({ report, skippedRows, onReset }: Props) {
           <p className="text-xs uppercase text-neutral-500">Cobertura</p>
           <p className="mt-1 font-mono text-2xl">
             {(report.coverage * 100).toFixed(0)}%
-            <span className="ml-2 text-sm text-neutral-500">
-              {(report.approxCoverage * 100).toFixed(0)}% con proxies
-            </span>
           </p>
           <p className="mt-2 text-xs text-neutral-500">
             Del espacio de pesos positivos (43.32) es medible desde el CSV.
-            El resto son señales inobservables (copy-link, DMs, negativas).
-            Proxies acotan la parte inobservable.
+            El resto son señales inobservables: copiar el enlace, DMs, quotes
+            y todas las negativas.
           </p>
+          {report.proxiedWeight > 0 && (
+            <p className="mt-2 text-xs text-neutral-500">
+              Además se <em>estima</em> por proxy una señal que vale{" "}
+              {report.proxiedWeight.toFixed(1)} del algoritmo, usando los
+              bookmarks como sustituto. Es una hipótesis sin medir, así que no
+              suma a la cobertura de arriba ni entra en las comparaciones
+              estadísticas.
+            </p>
+          )}
         </div>
         <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
           <p className="text-xs uppercase text-neutral-500">Hallazgos</p>

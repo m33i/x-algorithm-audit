@@ -9,8 +9,9 @@ sin enviar el CSV a ningún servidor:
 - **AlgoScore+**. Score aproximado que añade proxies para las señales de alto
   peso que el CSV no desglosa. Los proxies no son pesos del algoritmo.
 - **Cobertura observacional**. Fracción del espacio de pesos positivos medible
-  desde el CSV sin API.
-- **Cobertura efectiva**. La misma cifra añadiendo los proxies.
+  desde el CSV. Los proxies NO la aumentan: estiman, no observan.
+- **Peso estimado por proxy**. Cuánto vale en el algoritmo la señal que se
+  está aproximando a ciegas. No es un porcentaje ni se suma a la cobertura.
 - **Hallazgos priorizados** con evidencia estadística no paramétrica
   (Mann-Whitney U, p < 0.05, mínimo 8 posts por grupo).
 - **Prompt auto-copiado** listo para pegar en un LLM y obtener un diagnóstico
@@ -218,9 +219,12 @@ Esta seccion es la parte que NO es transcripcion del codigo de xAI. Los
 proxies son una adicion de esta herramienta para acotar la parte inobservable
 del algoritmo. Estan separados del score real en todos los sitios donde
 aparecen: `ScoreBreakdown.algoScore` (real) vs `ScoreBreakdown.approxScore`
-(proxy), `AnalysisReport.coverage` (real) vs `AnalysisReport.approxCoverage`
-(proxy). Las comparaciones estadisticas de cohortes usan solo `algoScore`,
-nunca `approxScore`.
+(con proxies). Las comparaciones estadisticas de cohortes usan solo
+`algoScore`, nunca `approxScore`.
+
+`AnalysisReport.coverage` mide solo lo observado de verdad y los proxies no
+la tocan. `AnalysisReport.proxiedWeight` dice, aparte, cuanto vale en el
+algoritmo la señal que se esta estimando.
 
 ### Que es un proxy
 
@@ -237,28 +241,48 @@ sustituto aproximado de la señal inobservable.
 
 ### Justificacion del proxy bookmarks
 
-`shareViaCopyLink` tiene peso 20.0, el mas alto del sistema. No es observable
-desde el CSV. `bookmarks` tiene peso real 0.0 en el algoritmo (no aparece en
-`ScoringWeights`), pero el CSV lo expone. Guardar un post para leerlo o
-compartirlo despues es la intencion observable mas cercana a copy-link.
+`shareViaCopyLink` tiene peso 20.0, el mas alto del sistema, y no es
+observable desde el CSV. `bookmarks` si lo expone el CSV, y guardar un post
+para leerlo o compartirlo despues es la intencion observable mas cercana a
+copiar el enlace.
 
-El peso proxy es 6.0. Es el punto medio del rango 4 a 8. No es un peso del
-algoritmo: es una aproximacion consciente, marcada como tal en todos los
-sitios donde aparece (UI, tipos, prompt del LLM, este README).
+Precision que importa: `bookmarks` **no aparece** en el struct
+`ScoringWeights` (`ranking_scorer.rs:18-58`), asi que no tiene peso. Eso no
+es lo mismo que tener peso 0.0, que es el caso de `profile_click`, que si
+esta en el struct puesto a cero.
 
-### Cobertura efectiva con proxies
+El peso proxy es 6.0 y es un **juicio**, no una medicion. Nadie ha medido que
+fraccion de `shareViaCopyLink` captura un bookmark, y no existe ninguna
+fuente que fije ese numero. Se eligio por debajo del 20.0 que sustituye para
+no sobreponderar una hipotesis, y por encima de los pesos de acciones baratas
+(click 0.4) para reflejar que guardar señala intencion alta. Es discutible;
+lo que no es admisible es presentarlo como un dato del algoritmo.
 
-- CSV nativo + bookmarks: (13.15 + 6.0) / 43.32 ~= 44%
-- CSV enriquecido con quote + bookmarks: (18.15 + 6.0) / 43.32 ~= 56%
+### Por que los proxies NO suman a la cobertura
 
-Se muestra como "44% con proxies" en la cabecera del reporte.
+Seria tentador reportar "(13.15 + 6.0) / 43.32 ~= 44% de cobertura". Es
+incorrecto y se elimino de la herramienta.
+
+El denominador 43.32 es la suma de los pesos reales, y su composicion incluye
+`shareViaCopyLink: 20.0`. El 6.0 del proxy **no es un componente de esos
+43.32**. Sumarlo al numerador mezcla unidades: el cociente deja de ser
+fraccion de nada real e infla la cobertura con un numero inventado,
+justamente en la metrica cuya funcion es demostrar honestidad.
+
+Lo que se reporta:
+
+- `coverage` = pesos reales observados / 43.32. CSV nativo: **~30%**. CSV
+  enriquecido con `quote_count`: **~42%** (ahi si sube, porque `quote` es un
+  peso real del algoritmo, no un proxy).
+- `proxiedWeight` = peso real de la señal que se esta estimando. Con
+  bookmarks presentes: **20.0**. No es un porcentaje.
 
 ### Limitaciones de los proxies
 
 - No son el score del ranker. No predicen el futuro.
-- No sustituyen a copy-link real. Solo lo acotan de forma aproximada.
-- No se usan para emitir hallazgos priorizados. Eso se hace con `algoScore`.
-- La herramienta indica explicitamente que son proxies, no pesos reales.
+- No sustituyen a copy-link real. Solo lo aproximan sin forma de validarlo.
+- No entran en las cohortes ni en los hallazgos. Eso se hace con `algoScore`.
+- No aumentan la cobertura reportada.
 
 ---
 

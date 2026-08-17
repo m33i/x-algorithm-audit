@@ -8,7 +8,7 @@ import {
   type ScoredPost,
 } from "./cohorts";
 import { median, quantile } from "./stats";
-import { datasetCoverage, datasetApproxCoverage } from "./scoring";
+import { datasetCoverage, datasetProxiedWeight } from "./scoring";
 import { diversityMultiplier, POSITIVE_WEIGHTS } from "./weights";
 import type { PostRow } from "./types";
 
@@ -41,11 +41,11 @@ export interface AnalysisReport {
   /** Cobertura real: pesos del algoritmo observables desde el CSV / positive_sum. */
   coverage: number;
   /**
-   * Cobertura efectiva: añade los pesos proxy (bookmarks como proxy de
-   * share_via_copy_link). Refleja cuánto podemos estimar, aunque sea vía
-   * proxy.
+   * Peso REAL del algoritmo que los proxies intentan estimar (20.0 de
+   * share_via_copy_link si hay bookmarks). No es una cobertura ni se suma
+   * a `coverage`: son magnitudes distintas.
    */
-  approxCoverage: number;
+  proxiedWeight: number;
   cohorts: CohortComparison[];
   findings: Finding[];
   burstPenalty: { burstCount: number; estimatedLoss: number };
@@ -123,7 +123,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const scores = posts.map((p) => p.algoScore);
   const medianAlgoScore = median(scores);
   const coverage = datasetCoverage(rows);
-  const approxCoverage = datasetApproxCoverage(rows);
+  const proxiedWeight = datasetProxiedWeight(rows);
 
   const cohorts: CohortComparison[] = [
     linkCohort(posts),
@@ -343,7 +343,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     posts,
     medianAlgoScore,
     coverage,
-    approxCoverage,
+    proxiedWeight,
     cohorts,
     findings,
     burstPenalty,
