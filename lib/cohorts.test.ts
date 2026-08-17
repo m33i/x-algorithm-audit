@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { mannWhitneyU } from "./stats";
 import {
   scoreAll,
   compareBinary,
@@ -173,5 +174,68 @@ describe("linkCohort", () => {
     }));
     const c = linkCohort(scoreAll([...rows, ...withMedia]));
     expect(c.groups[0].n + c.groups[1].n).toBe(20);
+  });
+});
+
+describe("invariantes que un test de mutación destapó sin cubrir", () => {
+  it("las cohortes comparan con algoScore, nunca con approxScore", () => {
+    // Bookmarks solo mueve approxScore (peso proxy inventado). Si las
+    // cohortes usaran approxScore, este dataset saldría significativo.
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 12; i++) {
+      rows.push(post(`a${i}`, `link https://x.com/${i}`, 100));
+      rows.push(post(`b${i}`, `plano ${i}`, 100));
+    }
+    // Cargamos bookmarks solo en el grupo con enlace.
+    const conBookmarks = rows.map((r, i) =>
+      i % 2 === 0 ? { ...r, bookmarks: 900 } : r,
+    );
+    const scored = scoreAll(conBookmarks);
+    // approxScore sí difiere entre grupos...
+    const conLink = scored.filter((p) => p.features.hasLink);
+    const sinLink = scored.filter((p) => !p.features.hasLink);
+    expect(conLink[0].approxScore).toBeGreaterThan(sinLink[0].approxScore);
+    // ...pero la cohorte, que usa algoScore, no ve diferencia alguna.
+    const c = compareBinary(scored, "link", ["con", "sin"], (p) => p.features.hasLink);
+    expect(c.significant).toBe(false);
+  });
+
+  it("compareGroups corrige por comparaciones múltiples (Bonferroni)", () => {
+    // Tres grupos de 10 => 3 pares posibles => la p del par elegido se
+    // multiplica por 3. Se compara contra el Mann-Whitney crudo de los dos
+    // grupos que compareGroups acaba contrastando.
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 10; i++) rows.push(post(`a${i}`, `alfa ${i}`, 100 + i));
+    for (let i = 0; i < 10; i++) rows.push(post(`b${i}`, `beta ${i}`, 150 + i));
+    for (let i = 0; i < 10; i++) rows.push(post(`g${i}`, `gamma ${i}`, 200 + i));
+    const scored = scoreAll(rows);
+    const c = compareGroups(scored, "g", (p) => p.row.text.split(" ")[0]);
+
+    const alfa = scored.filter((p) => p.row.text.startsWith("alfa"));
+    const gamma = scored.filter((p) => p.row.text.startsWith("gamma"));
+    const crudo = mannWhitneyU(
+      alfa.map((p) => p.algoScore),
+      gamma.map((p) => p.algoScore),
+    ).p;
+
+    expect(c.comparisons).toBe(3);
+    expect(c.pScore!).toBeCloseTo(crudo * 3, 12);
+    expect(c.pScore!).toBeGreaterThan(crudo);
+  });
+
+  it("compareBinary no corrige: solo hay un par posible", () => {
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 10; i++) rows.push(post(`a${i}`, `alfa ${i}`, 100 + i));
+    for (let i = 0; i < 10; i++) rows.push(post(`b${i}`, `beta ${i}`, 300 + i));
+    const scored = scoreAll(rows);
+    const c = compareBinary(scored, "x", ["a", "b"], (p) =>
+      p.row.text.startsWith("alfa"),
+    );
+    const crudo = mannWhitneyU(
+      scored.filter((p) => p.row.text.startsWith("alfa")).map((p) => p.algoScore),
+      scored.filter((p) => p.row.text.startsWith("beta")).map((p) => p.algoScore),
+    ).p;
+    expect(c.comparisons).toBe(1);
+    expect(c.pScore!).toBeCloseTo(crudo, 12);
   });
 });

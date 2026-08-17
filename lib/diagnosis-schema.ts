@@ -38,6 +38,8 @@ export const DiagnosisRequestSchema = z.object({
           )
           .max(10),
         pScore: z.number().nullable(),
+        /** Pares posibles en la cohorte; pScore ya viene corregido por él. */
+        comparisons: z.number().int().min(1),
         significant: z.boolean(),
         insufficientSample: z.boolean(),
       }),

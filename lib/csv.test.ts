@@ -115,3 +115,26 @@ describe("parseAnalyticsCsv", () => {
     expect(() => parseAnalyticsCsv("")).toThrow(CsvParseError);
   });
 });
+
+describe("enriquecimiento de media desde la API", () => {
+  it("acepta una columna has_media booleana", () => {
+    const r = parseAnalyticsCsv(
+      "Date,Post id,Post text,Impressions,has_media\n2026-08-01,111,Hola,1000,true",
+    );
+    expect(r.rows[0].mediaViews).toBe(1);
+  });
+
+  it("mapea false a 0, no a null", () => {
+    const r = parseAnalyticsCsv(
+      "Date,Post id,Post text,Impressions,has_media\n2026-08-01,111,Hola,1000,false",
+    );
+    expect(r.rows[0].mediaViews).toBe(0);
+  });
+
+  it("sigue aceptando media views numérico", () => {
+    const r = parseAnalyticsCsv(
+      "Date,Post id,Post text,Impressions,Media views\n2026-08-01,111,Hola,1000,42",
+    );
+    expect(r.rows[0].mediaViews).toBe(42);
+  });
+});

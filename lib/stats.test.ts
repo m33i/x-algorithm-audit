@@ -93,3 +93,32 @@ describe("mannWhitneyU", () => {
     expect(() => mannWhitneyU([], [1, 2, 3])).toThrow();
   });
 });
+
+describe("correcciones que nadie ejercitaba", () => {
+  /**
+   * Estos dos tests existen porque un test de mutación demostró que se podían
+   * borrar la corrección por empates y la de continuidad sin que fallara nada:
+   * los casos que había usaban valores todos idénticos (varianza cero, que
+   * cortocircuita antes) o U == mu (z = 0 pase lo que pase).
+   */
+  it("la corrección por empates cambia el resultado", () => {
+    // Empates parciales: hay varianza y los empates la reducen, así que la
+    // corrección baja la p. El valor está fijado: sin corrección por empates
+    // la varianza sube y esta aserción falla.
+    const a = [1, 1, 2, 2, 3, 3, 4, 4];
+    const b = [3, 3, 4, 4, 5, 5, 6, 6];
+    const r = mannWhitneyU(a, b);
+    expect(r.u).toBe(8);
+    expect(r.z).toBeCloseTo(2.51273434, 6);
+    expect(r.p).toBeCloseTo(0.01197999, 6);
+  });
+
+  it("distingue una p intermedia de una significativa", () => {
+    // Fija que el umbral 0.05 importa: esta p cae entre 0.05 y 0.5.
+    const a = [1, 3, 5, 7, 9, 11, 13, 15];
+    const b = [2, 4, 6, 8, 10, 12, 14, 30];
+    const p = mannWhitneyU(a, b).p;
+    expect(p).toBeGreaterThan(0.05);
+    expect(p).toBeLessThan(0.9);
+  });
+});

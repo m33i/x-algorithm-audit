@@ -12,8 +12,9 @@ sin enviar el CSV a ningún servidor:
   desde el CSV. Los proxies NO la aumentan: estiman, no observan.
 - **Peso estimado por proxy**. Cuánto vale en el algoritmo la señal que se
   está aproximando a ciegas. No es un porcentaje ni se suma a la cobertura.
-- **Hallazgos priorizados** con evidencia estadística no paramétrica
-  (Mann-Whitney U, p < 0.05, mínimo 8 posts por grupo).
+- **Hallazgos priorizados**. Los de cohorte llevan test no paramétrico
+  (Mann-Whitney U, p < 0.05 corregida por comparaciones múltiples, mínimo 8
+  posts por grupo); el resto son agregados con suelo de muestra, sin test.
 - **Prompt auto-copiado** listo para pegar en un LLM y obtener un diagnóstico
   estructurado en 10 secciones.
 
@@ -34,7 +35,9 @@ licencia Apache 2.0:
 - Multiplicador de diversidad por autor: `ranking_scorer.rs:643-645`
 - Parámetros de diversidad y OON: `param.rs:228-271`
 
-Si xAI cambia un peso, esta herramienta lo refleja. Si no, no.
+La sincronización es **manual**: los tests fijan los pesos transcritos, así
+que ningún cambio local pasa desapercibido, pero nada lee `param.rs` en tiempo
+de ejecución. Si xAI cambia un peso, hay que actualizarlo a mano aquí.
 
 ---
 
@@ -85,7 +88,7 @@ la suma del código pero no alteran el total.
 | Report         | -234.0  | `ReportWeight`        | `param.rs:468` |
 | NotDwelled     | -0.02   | `NotDwelledWeight`    | `param.rs:470` |
 
-### `negative_sum` = 367.24
+### `negative_sum` = 367.22
 
 Réplica de `ranking_scorer.rs:127`:
 `-(not_interested + block + mute + report + not_dwelled)`.
@@ -149,10 +152,18 @@ AlgoScore = suma( peso_i * P(accion_i) )
           = suma( peso_i * accion_i / impresiones )
 ```
 
-Convierte contadores en probabilidades por espectador. El AlgoScore es
-monotonamente equivalente al score real del ranker (que se normaliza despues
-con una transformacion afin en `ranking_scorer.rs:555-558`), no identico en
-valor absoluto. Lo que importa es el orden entre posts, no el numero.
+Convierte contadores en probabilidades por espectador, que es lo que hace
+comparables dos posts de alcance muy distinto.
+
+Cuidado con exagerar lo que eso significa. La normalizacion afin que el ranker
+aplica despues (`ranking_scorer.rs:555-558`) si preserva el orden, pero el
+AlgoScore **no** es monotonamente equivalente al score del ranker: cubre ~30%
+de los pesos positivos y 0% de los negativos, sustituye las probabilidades que
+predice el modelo por tasas empiricas a posteriori, y no aplica los
+multiplicadores de diversidad ni de OON. La equivalencia vale para la parte
+observable del positive_sum, bajo el supuesto de que la tasa empirica aproxima
+la probabilidad predicha. Lo que importa es el orden relativo entre TUS posts,
+no el numero ni su relacion con el score real.
 
 ### Que acciones son observables desde el CSV
 
@@ -170,8 +181,8 @@ acciones del algoritmo:
 | `detail expands` + `permalink clicks` | click | 0.4 (se suman bajo un solo peso, sin duplicar) |
 | `url clicks`           | openLink             | 0.2   |
 | `media views`          | photoExpand          | 0.05 (una sola vez, no triplica para video_open + vqv) |
-| `bookmarks`            | - (peso real 0.0)    | 0.0 en el AlgoScore. Proxy 6.0 en el AlgoScore+ |
-| `profile visits`       | - (peso real 0.0)    | 0.0, sin proxy |
+| `bookmarks`            | - (ausente del struct) | 0.0 en el AlgoScore. Proxy 6.0 en el AlgoScore+ |
+| `profile visits`       | profileClick (0.0 en el struct) | 0.0, sin proxy |
 | `engagements`, `hashtag clicks` | -          | informativo, sin peso |
 
 ### `quote` (peso real 5.0)
@@ -463,9 +474,15 @@ grep -n "FavoriteWeight" home-mixer/params/param.rs
 grep -n "positive_sum" home-mixer/scorers/ranking_scorer.rs
 ```
 
-Los tests de `lib/weights.test.ts` y `lib/scoring.test.ts` verifican que los
-pesos transcritos y las sumas son exactamente los del codigo fuente. Si xAI
-cambia un peso, los tests fallan y la herramienta se actualiza.
+Los tests de `lib/weights.test.ts` y `lib/scoring.test.ts` fijan los pesos
+transcritos y las sumas, asi que ninguna edicion local pasa desapercibida
+(cambiar `favorite` a 0.6 rompe 12 tests).
+
+Lo que **no** hacen: leer `param.rs`. Reafirman los mismos literales que
+declara `lib/weights.ts`, asi que si xAI cambiara un peso manana, todos los
+tests seguirian en verde. La sincronizacion con el upstream es manual, y esa
+es la razon de que cada constante lleve su `fichero:linea`: para que
+verificarla a mano cueste diez segundos.
 
 Para reportar discrepancias entre este audit y el codigo oficial, abre un issue
 en este repo con la referencia a la linea de `param.rs` o

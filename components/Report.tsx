@@ -35,9 +35,9 @@ export function Report({ report, skippedRows, onReset }: Props) {
           <p className="text-xs uppercase text-neutral-500">AlgoScore mediano</p>
           <p className="mt-1 font-mono text-2xl">{report.medianAlgoScore.toFixed(4)}</p>
           <p className="mt-2 text-xs text-neutral-500">
-            Score promedio por espectador. Replicacion del positive_sum del
-            ranker de X (param.rs). Mas alto = mas acciones de peso por
-            impresion.
+            Score promedio por espectador: la combinacion ponderada del ranker
+            aplicada a la parte del positive_sum que el CSV deja observar. Mas
+            alto = mas acciones de peso por impresion.
           </p>
         </div>
         <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
@@ -64,8 +64,10 @@ export function Report({ report, skippedRows, onReset }: Props) {
           <p className="text-xs uppercase text-neutral-500">Hallazgos</p>
           <p className="mt-1 font-mono text-2xl">{report.findings.length}</p>
           <p className="mt-2 text-xs text-neutral-500">
-            Patrones con evidencia estadistica (Mann-Whitney U, p &lt; 0.05,
-            minimo 8 posts por grupo). Ordenados por severidad.
+            Los de cohorte llevan test estadistico: Mann-Whitney U, p &lt; 0.05
+            corregida por comparaciones multiples, minimo 8 posts por grupo. El
+            resto son agregados sobre tus propios datos, con suelo de muestra
+            pero sin test. Ordenados por severidad.
           </p>
         </div>
       </section>

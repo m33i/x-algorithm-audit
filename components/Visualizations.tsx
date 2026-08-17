@@ -116,7 +116,9 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
     const scores = posts.map((p) => p.algoScore);
     if (scores.length === 0) return null;
     const min = 0;
-    const max = Math.max(...scores) * 1.05;
+    // Si todos los scores son 0, `max` sería 0 y binSize 0 -> índices NaN y
+    // una línea de mediana en `left: NaN%`. Se fuerza un rango mínimo.
+    const max = Math.max(...scores) * 1.05 || 1;
     const bins = 20;
     const binSize = (max - min) / bins;
     const counts = new Array(bins).fill(0);
@@ -130,21 +132,32 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
   }, [posts]);
 
   // --- Scatter impresiones vs AlgoScore ---
+  const wastedIds = useMemo(
+    () => new Set(report.wastedPostIds),
+    [report.wastedPostIds],
+  );
+
   const scatter = useMemo(() => {
     if (posts.length < 2) return null;
     const imps = posts.map((p) => p.row.impressions);
     const scores = posts.map((p) => p.algoScore);
     const logMin = Math.log10(Math.max(1, Math.min(...imps)));
-    const logMax = Math.log10(Math.max(...imps));
+    // Con impresiones idénticas logMin === logMax y toda división por su
+    // diferencia da NaN: cada punto acabaría en `left: NaN%`.
+    const rawLogMax = Math.log10(Math.max(...imps));
+    const logMax = rawLogMax > logMin ? rawLogMax : logMin + 1;
     const scoreMin = 0;
-    const scoreMax = Math.max(...scores) * 1.1;
+    const scoreMax = Math.max(...scores) * 1.1 || 1;
     const p90Imp = quantile(imps, 0.9);
     const p25Score = quantile(scores, 0.25);
 
     const points = posts.map((p) => {
       const x = ((Math.log10(p.row.impressions) - logMin) / (logMax - logMin)) * 100;
       const y = 100 - ((p.algoScore - scoreMin) / (scoreMax - scoreMin)) * 100;
-      const wasted = p.row.impressions >= p90Imp && p.algoScore <= p25Score;
+      // No se reimplementa el criterio: se consume el conjunto que
+      // `findings.ts` ya decidió, con sus guardas de dispersión y mínimo de
+      // posts. Si el hallazgo no se emitió, no se pinta nada de rojo.
+      const wasted = wastedIds.has(p.row.id);
       return { x, y, wasted, id: p.row.id, imp: p.row.impressions, score: p.algoScore };
     });
 
@@ -152,7 +165,7 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
     const p25Y = 100 - ((p25Score - scoreMin) / (scoreMax - scoreMin)) * 100;
 
     return { points, p90X, p25Y, logMin, logMax, scoreMin, scoreMax, p90Imp, p25Score };
-  }, [posts]);
+  }, [posts, wastedIds]);
 
   // --- Cohortes significativas ---
   const sigCohorts = report.cohorts.filter((c) => c.significant && c.groups.length >= 2);

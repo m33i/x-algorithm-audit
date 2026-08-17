@@ -77,9 +77,9 @@ export const NEGATIVE_WEIGHTS = {
  * Son sustitutos aproximados que esta herramienta usa para cubrir parte del
  * espacio de pesos positivos que el CSV de Analytics deja sin observar.
  *
- * El CSV nativo expone ~30% del positive_sum (OBSERVABLE_MAX = 13.15 de
- * 43.32). Los proxies elevan la cobertura efectiva al añadir señales que el
- * algoritmo pondera pero que el CSV no desglosa.
+ * Los proxies NO elevan la cobertura: estiman. La cobertura mide lo que se
+ * observa del algoritmo, y un peso inventado no observa nada. Ver la nota de
+ * `proxiedWeight` en scoring.ts.
  *
  * - bookmarks: NO aparece en el struct `ScoringWeights`
  *   (ranking_scorer.rs:18-58), así que no tiene peso en el algoritmo. Ojo a
@@ -105,11 +105,6 @@ export const PROXY_WEIGHTS = {
   bookmarks: 6.0,
 } as const;
 
-/** Suma de los pesos proxy, para calcular la cobertura efectiva. */
-export const PROXY_SUM: number = Object.values(PROXY_WEIGHTS).reduce(
-  (acc, w) => acc + w,
-  0,
-);
 /** Boost aplicado a `reply` cuando el espectador y el autor se siguen mutuamente. param.rs:310 */
 export const BIDIRECTIONAL_FOLLOW_REPLY_BOOST = 15.0;
 

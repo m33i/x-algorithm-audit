@@ -11,9 +11,15 @@ import type { PostRow } from "./types";
  *
  *   AlgoScore = Σ ( peso_i × acción_i / impresiones )
  *
- * El score real se normaliza después con una transformación afín
- * (`ranking_scorer.rs:555-558`), que preserva el orden. Nuestro AlgoScore es
- * monótonamente equivalente al real, no idéntico en valor absoluto.
+ * Alcance de la equivalencia, dicho con precisión. El score real se normaliza
+ * con una transformación afín (`ranking_scorer.rs:555-558`) que preserva el
+ * orden, así que ESA transformación no altera el ranking. Pero el AlgoScore no
+ * es monótonamente equivalente al score del ranker: cubre ~30% del espacio de
+ * pesos positivos y 0% de los negativos, sustituye las probabilidades
+ * predichas por el modelo por tasas empíricas a posteriori, y no aplica los
+ * multiplicadores de diversidad ni de OON. La equivalencia solo vale para la
+ * parte observable del positive_sum, y bajo el supuesto de que la tasa
+ * empírica aproxima la probabilidad predicha.
  *
  * Además del AlgoScore "real" (solo pesos transcritos del código), se calcula
  * un `approxScore` que añade los pesos proxy de `PROXY_WEIGHTS` para las

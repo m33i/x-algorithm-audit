@@ -23,7 +23,7 @@ Los números ya están calculados. Nunca recalcules nada. Nunca inventes cifras,
 1. Usa ÚNICAMENTE los datos que vienen en el payload JSON que te entregan.
 2. Si un hallazgo o cohorte tiene \`"insufficientSample": true\`, ignóralo completamente. No lo menciones ni lo uses como evidencia de nada.
 3. No introduzcas ninguna cifra, porcentaje, ratio o estadística que no aparezca literalmente en el payload.
-4. Prioriza los hallazgos por impacto real esperado en el score futuro (peso del algoritmo × frecuencia/volumen del problema), no por la etiqueta de severidad ("alta/media/baja").
+4. Prioriza los hallazgos por impacto real esperado, razonando con los pesos del algoritmo y el volumen que ya viene en la evidencia. Ordenar es un juicio, no un cálculo: no inventes cifras de impacto ni multipliques números que no estén en el payload.
 5. Las reescrituras solo se hacen sobre posts del bucket \`"peor"\`.
 6. Cada reescritura debe explicar con precisión qué peso concreto del algoritmo mejora (ReplyWeight 5.0 + BidirectionalFollowReplyWeightBoost 15.0, ShareViaCopyLinkWeight 20.0, OpenLinkWeight 0.2, FollowAuthorWeight 4.0, etc.).
 7. Escribe en español, tono directo, preciso y profesional. Cero relleno, cero frases motivacionales, cero consejos genéricos de "growth".
@@ -48,10 +48,11 @@ Los números ya están calculados. Nunca recalcules nada. Nunca inventes cifras,
 - El campo \`coverage\` es la fracción del positive_sum (43.32) que se mide de verdad. Es el número honesto de cobertura y el único que debes citar como tal.
 - Bookmarks NO tiene peso en el algoritmo: no aparece en el struct ScoringWeights. (Distinto de ProfileClick, que sí está en el struct puesto a 0.0.) Esta auditoría lo usa como proxy de share_via_copy_link con un peso inventado de 6.0. Ese 6.0 es un juicio de quien construyó la herramienta, no un dato del código. El campo \`proxiedWeight\` indica cuánto vale en el algoritmo la señal que se está intentando estimar; NO es un porcentaje de cobertura y no se suma a \`coverage\`.
 - Las contribuciones proxy van en \`approxScore\`, separado de \`algoScore\`. Todas las comparaciones estadísticas de cohortes usan \`algoScore\`. Nunca presentes \`approxScore\` como el score del ranker.
-- Estas columnas del CSV sí usan el peso REAL del algoritmo, no son proxies: Replies (5.0), New follows (4.0), Share (2.0), Reposts (1.0), Likes (0.5), Detail Expands + Permalink Clicks (0.4, sumadas como una sola acción \`click\`), Url clicks (0.2) y Media views (0.05).
+- Estas columnas del CSV sí usan el peso REAL del algoritmo, no son proxies: Replies (5.0), New follows (4.0), Share (2.0), Reposts (1.0), Likes (0.5), Detail Expands + Permalink Clicks (0.4, sumadas como una sola acción \`click\`), Url clicks (0.2) y Media views (0.05) si el CSV la trae, que el export nativo no.
 - Profile visits NO se incorpora a ningún score, porque ProfileClick vale 0.0 en el algoritmo. Si el payload trae un hallazgo sobre señales de peso cero, dice justamente eso: optimizar visitas al perfil no mueve el ranking. No contradigas ese hallazgo.
 - Siguen sin ser observables: ShareViaCopyLink real (20.0), Quote salvo que el CSV venga enriquecido con quote_count, ShareViaDm, las replies de mutuos, el dwell real y todas las señales negativas.
 - **La cohorte de enlaces mezcla enlaces externos con adjuntos de media.** X acorta a t.co ambas cosas y el CSV nativo no trae columna de media, así que no se pueden separar. Cuando hables de esa cohorte, di que compara "posts con algo adjunto" contra "posts de solo texto", NO "posts con enlace" contra "posts sin enlace". No atribuyas el efecto únicamente a OpenLink: PhotoExpand (0.05) es igual de barato y apunta en la misma dirección. Si el hallazgo trae esa advertencia en su explicación, respétala y no la simplifiques.
+- Los p-valores de las cohortes con más de dos grupos vienen corregidos por comparaciones múltiples (Bonferroni sobre los k(k-1)/2 pares) porque se elige el mejor contra el peor. El campo \`comparisons\` dice cuántos pares había. Si vale más de 1, dilo al citar esa cohorte: es una comparación seleccionada, no planeada de antemano.
 - Por el mismo motivo, la cohorte \`media\` casi siempre saldrá con \`insufficientSample: true\`. No es un fallo del análisis ni significa que la cuenta no publique imágenes: significa que no se pueden detectar.
 
 ### Estructura obligatoria del documento de salida (Markdown completo)
@@ -166,6 +167,7 @@ export function buildDiagnosisPayload(
       id: c.id,
       groups: c.groups,
       pScore: c.pScore,
+      comparisons: c.comparisons,
       significant: c.significant,
       insufficientSample: c.insufficientSample,
     })),

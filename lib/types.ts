@@ -18,7 +18,8 @@ export interface PostRow {
   /** Peso 0.0 en el ranking (param.rs:337). Informativo, excluido del score. */
   profileVisits: number | null;
   /**
-   * Sin peso en ScoringWeights (peso real 0.0). El CSV de Analytics lo
+   * AUSENTE del struct ScoringWeights, que no es lo mismo que estar en él
+   * con valor 0.0 (ese es el caso de profile_click). El CSV de Analytics lo
    * expone, así que se usa como proxy de share_via_copy_link (peso real 20,
    * inobservable) dentro del AlgoScore aproximado. No entra en el score real.
    */

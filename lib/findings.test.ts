@@ -90,13 +90,48 @@ describe("analyze", () => {
 
   it("detecta ráfagas y estima el multiplicador perdido", () => {
     const base = new Date("2026-08-17T10:00:00Z").getTime();
+    // 10 posts: por encima de MIN_GROUP_SIZE. Los 5 primeros en ráfaga (10
+    // minutos entre ellos), el resto espaciados por días para que el CSV
+    // tenga horas distintas y `hasTimeOfDay` sea true.
+    const rows = [
+      ...Array.from({ length: 5 }, (_, i) =>
+        post({ id: `b${i}`, date: new Date(base + i * 10 * 60 * 1000) }),
+      ),
+      ...Array.from({ length: 5 }, (_, i) =>
+        post({
+          id: `s${i}`,
+          date: new Date(base + (i + 1) * 24 * 3600 * 1000 + 3600 * 1000),
+        }),
+      ),
+    ];
+    const r = analyze(rows);
+    expect(r.hasTimeOfDay).toBe(true);
+    expect(r.burstPenalty.burstCount).toBeGreaterThan(0);
+    expect(r.burstPenalty.estimatedLoss).toBeGreaterThan(0);
+    expect(r.findings.some((f) => f.id === "burst-cannibalization")).toBe(true);
+  });
+
+  it("NO emite el hallazgo de ráfaga por debajo de MIN_GROUP_SIZE", () => {
+    const base = new Date("2026-08-17T10:00:00Z").getTime();
+    // 5 posts seguidos: hay ráfaga, pero la muestra no sostiene un hallazgo.
     const rows = Array.from({ length: 5 }, (_, i) =>
       post({ id: `b${i}`, date: new Date(base + i * 10 * 60 * 1000) }),
     );
     const r = analyze(rows);
     expect(r.burstPenalty.burstCount).toBeGreaterThan(0);
-    expect(r.burstPenalty.estimatedLoss).toBeGreaterThan(0);
-    expect(r.findings.some((f) => f.id === "burst-cannibalization")).toBe(true);
+    expect(r.findings.some((f) => f.id === "burst-cannibalization")).toBe(false);
+  });
+
+  it("NO emite el hallazgo de ráfaga si el CSV no trae hora", () => {
+    // Todas las fechas a medianoche, como el export nativo de X: sin hora,
+    // los posts del mismo día parecerían simultáneos.
+    const rows = Array.from({ length: 12 }, (_, i) =>
+      post({ id: `n${i}`, date: new Date(2026, 7, 1 + Math.floor(i / 3)) }),
+    );
+    const r = analyze(rows);
+    expect(r.hasTimeOfDay).toBe(false);
+    expect(r.findings.some((f) => f.id === "burst-cannibalization")).toBe(false);
+    expect(r.cohorts.some((c) => c.id === "hora")).toBe(false);
   });
 
   it("no detecta ráfaga con posts bien espaciados", () => {
@@ -171,5 +206,38 @@ describe("analyze", () => {
 
   it("lanza si no hay posts", () => {
     expect(() => analyze([])).toThrow();
+  });
+});
+
+describe("dirección del hallazgo de enlaces", () => {
+  /**
+   * `groups` viene ordenado por mediana, no por etiqueta. Si el hallazgo da
+   * por hecho que el enlace es siempre el grupo peor, sobre una cuenta donde
+   * los enlaces rinden mejor afirma lo contrario de su propia evidencia y
+   * recomienda romper lo que funciona. Estos dos tests fijan las dos
+   * direcciones.
+   */
+  function dataset(likesConEnlace: number, likesSinEnlace: number) {
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 12; i++) {
+      rows.push(post({ id: `l${i}`, text: `link https://a.com/${i}`, likes: likesConEnlace + i }));
+      rows.push(post({ id: `p${i}`, text: `plano ${i}`, likes: likesSinEnlace + i }));
+    }
+    return rows;
+  }
+
+  it("dice 'peor' cuando los posts con enlace puntúan menos", () => {
+    const f = analyze(dataset(5, 300)).findings.find((x) => x.id === "link-tax");
+    expect(f).toBeDefined();
+    expect(f!.title).toContain("peor");
+    expect(f!.severity).toBe("alta");
+  });
+
+  it("dice 'mejor' cuando los posts con enlace puntúan más", () => {
+    const f = analyze(dataset(300, 5)).findings.find((x) => x.id === "link-tax");
+    expect(f).toBeDefined();
+    expect(f!.title).toContain("mejor");
+    // Y no recomienda quitar los enlaces.
+    expect(f!.action).toContain("No cambies nada");
   });
 });

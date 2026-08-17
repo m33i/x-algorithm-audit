@@ -43,6 +43,12 @@ export interface CohortComparison {
   pScore: number | null;
   /** p del contraste sobre impresiones. null si la muestra no alcanza. */
   pImpressions: number | null;
+  /**
+   * Número de pares que se podrían haber contrastado en esta cohorte.
+   * `pScore` y `pImpressions` ya vienen multiplicados por él (Bonferroni).
+   * Con dos grupos vale 1 y no corrige nada.
+   */
+  comparisons: number;
   /** true solo si pScore < SIGNIFICANCE_THRESHOLD. */
   significant: boolean;
   /** true si algún grupo comparado quedó por debajo de MIN_GROUP_SIZE. */
@@ -70,12 +76,23 @@ function summarize(label: string, posts: ScoredPost[]): CohortGroup {
   };
 }
 
-/** Contrasta dos conjuntos aplicando los umbrales. */
+/**
+ * Contrasta dos conjuntos aplicando los umbrales.
+ *
+ * `comparisons` es el número de pares que se podrían haber contrastado dentro
+ * de esta cohorte. Con dos grupos vale 1 y no corrige nada. Con más, hay que
+ * corregir: elegir el mejor contra el peor y reportar la p del par como si
+ * hubiera sido la única comparación planeada infla los falsos positivos.
+ * Medido por simulación bajo la hipótesis nula: 11.7% con 3 grupos, 15.3% con
+ * 4 y 29.8% con 7, frente al 5% nominal. Se aplica Bonferroni sobre los
+ * k(k-1)/2 pares, que es conservador pero defendible y fácil de explicar.
+ */
 function contrast(
   id: string,
   groups: CohortGroup[],
   a: ScoredPost[],
   b: ScoredPost[],
+  comparisons = 1,
 ): CohortComparison {
   const insufficient = a.length < MIN_GROUP_SIZE || b.length < MIN_GROUP_SIZE;
 
@@ -85,25 +102,30 @@ function contrast(
       groups,
       pScore: null,
       pImpressions: null,
+      comparisons,
       significant: false,
       insufficientSample: true,
     };
   }
 
-  const pScore = mannWhitneyU(
+  const raw = mannWhitneyU(
     a.map((p) => p.algoScore),
     b.map((p) => p.algoScore),
   ).p;
-  const pImpressions = mannWhitneyU(
+  const rawImpressions = mannWhitneyU(
     a.map((p) => p.row.impressions),
     b.map((p) => p.row.impressions),
   ).p;
+
+  const pScore = Math.min(1, raw * comparisons);
+  const pImpressions = Math.min(1, rawImpressions * comparisons);
 
   return {
     id,
     groups,
     pScore,
     pImpressions,
+    comparisons,
     significant: pScore < SIGNIFICANCE_THRESHOLD,
     insufficientSample: false,
   };
@@ -161,6 +183,7 @@ export function compareGroups(
       groups,
       pScore: null,
       pImpressions: null,
+      comparisons: 1,
       significant: false,
       insufficientSample: true,
     };
@@ -172,7 +195,10 @@ export function compareGroups(
   const worst = byMedian[0].posts;
   const best = byMedian[byMedian.length - 1].posts;
 
-  return contrast(id, groups, worst, best);
+  // k(k-1)/2 pares posibles entre los grupos que superaron el umbral de
+  // muestra: son las comparaciones entre las que se eligió esta.
+  const k = kept.length;
+  return contrast(id, groups, worst, best, (k * (k - 1)) / 2);
 }
 
 /**

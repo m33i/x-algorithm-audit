@@ -62,6 +62,16 @@ export interface AnalysisReport {
    * horaria y el eje de horas del heatmap.
    */
   hasTimeOfDay: boolean;
+  /**
+   * Ids de los posts que el hallazgo `wasted-reach` señala, o array vacío si
+   * el hallazgo no se emitió.
+   *
+   * Se expone para que la UI no reimplemente el criterio. La versión anterior
+   * lo duplicaba en el scatter sin las guardas de dispersión ni el mínimo de
+   * 2 posts, así que el gráfico podía pintar de rojo lo que la lógica de
+   * hallazgos había decidido que no se sostenía.
+   */
+  wastedPostIds: string[];
 }
 
 const SEVERITY_ORDER: Record<Severity, number> = { alta: 0, media: 1, baja: 2 };
@@ -174,34 +184,58 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const burstPenalty = analyzeBursts(posts);
   const findings: Finding[] = [];
 
-  // 1. Impuesto del link
+  // 1. Efecto del enlace acortado.
+  //
+  // OJO: `groups` viene ordenado por mediana ascendente, NO por etiqueta. Hay
+  // que mirar cuál de los dos grupos es el de enlaces antes de narrar nada.
+  // La versión anterior daba por hecho que el enlace era siempre el peor y
+  // sobre datos reales afirmaba lo contrario de su propia evidencia.
   const link = cohorts.find((c) => c.id === "link");
   if (link && link.significant && link.groups.length === 2) {
-    const [worse, better] = link.groups;
+    const [lower, higher] = link.groups;
+    const linkGroup =
+      lower.label === "con enlace acortado" ? lower : higher;
+    const plainGroup = linkGroup === lower ? higher : lower;
+    const linkIsWorse = linkGroup === lower;
+
+    const confound =
+      `X acorta a t.co tanto los enlaces externos como los adjuntos de media, y el CSV de ` +
+      `Analytics no trae columna de media, así que no se pueden separar: el grupo "con enlace ` +
+      `acortado" mezcla ambos. Lo que compara este hallazgo es "posts con algo adjunto" frente ` +
+      `a "posts de solo texto".`;
+
     findings.push({
       id: "link-tax",
-      title: "Tus posts con enlace acortado rinden peor que los de solo texto",
-      severity: "alta",
+      title: linkIsWorse
+        ? "Tus posts con enlace acortado rinden peor que los de solo texto"
+        : "Tus posts con enlace acortado rinden mejor que los de solo texto",
+      severity: linkIsWorse ? "alta" : "media",
       evidence:
-        `${worse.label}: mediana de AlgoScore ${worse.medianScore.toFixed(4)} ` +
-        `(${worse.medianImpressions.toFixed(0)} impresiones, n=${worse.n}). ` +
-        `${better.label}: ${better.medianScore.toFixed(4)} ` +
-        `(${better.medianImpressions.toFixed(0)} impresiones, n=${better.n}). ` +
-        `Diferencia de ${ratio(better.medianScore, worse.medianScore)}, p=${link.pScore!.toFixed(4)}.`,
-      explanation:
-        `Importante para interpretarlo bien: X acorta a t.co tanto los enlaces externos como ` +
-        `los adjuntos de media, y el CSV de Analytics no trae ninguna columna de media, así que ` +
-        `no se pueden separar. El grupo "con enlace acortado" mezcla ambos. Lo que mide este ` +
-        `hallazgo es "posts con algo adjunto" frente a "posts de solo texto". ` +
-        `El mecanismo apunta igual en los dos casos: no hay penalización explícita a URLs en el ` +
-        `código de X, pero un adjunto canaliza la atención hacia acciones baratas — open_link ` +
-        `pesa ${POSITIVE_WEIGHTS.openLink} y photo_expand ${POSITIVE_WEIGHTS.photoExpand} — en ` +
-        `vez de hacia reply (${POSITIVE_WEIGHTS.reply}) o share_via_copy_link ` +
-        `(${POSITIVE_WEIGHTS.shareViaCopyLink}).`,
-      action:
-        "Prueba a poner el contenido en el propio post y dejar el enlace para una reply. Si " +
-        "quieres separar el efecto del enlace del de la imagen, enriquece el CSV con una " +
-        "columna de media desde la X API: sin ella los dos van juntos.",
+        `con enlace acortado: mediana de AlgoScore ${linkGroup.medianScore.toFixed(4)} ` +
+        `(${linkGroup.medianImpressions.toFixed(0)} impresiones, n=${linkGroup.n}). ` +
+        `solo texto: ${plainGroup.medianScore.toFixed(4)} ` +
+        `(${plainGroup.medianImpressions.toFixed(0)} impresiones, n=${plainGroup.n}). ` +
+        `Diferencia de ${ratio(higher.medianScore, lower.medianScore)} a favor de ` +
+        `"${higher.label}", p=${link.pScore!.toFixed(4)}.`,
+      explanation: linkIsWorse
+        ? `${confound} ` +
+          `El mecanismo apunta igual en los dos casos: no hay penalización explícita a URLs en ` +
+          `el código de X, pero un adjunto canaliza la atención hacia acciones baratas ` +
+          `— open_link pesa ${POSITIVE_WEIGHTS.openLink} y photo_expand ` +
+          `${POSITIVE_WEIGHTS.photoExpand} — en vez de hacia reply (${POSITIVE_WEIGHTS.reply}) ` +
+          `o share_via_copy_link (${POSITIVE_WEIGHTS.shareViaCopyLink}).`
+        : `${confound} ` +
+          `En tu cuenta el patrón va en dirección contraria al consejo habitual: los posts con ` +
+          `algo adjunto puntúan mejor. No hay ninguna penalización a URLs en el código de X que ` +
+          `explique lo contrario, así que no hay nada que corregir aquí. Cuidado con el consejo ` +
+          `genérico de "no pongas enlaces": no aplica a estos datos.`,
+      action: linkIsWorse
+        ? "Prueba a poner el contenido en el propio post y dejar el enlace para una reply. Si " +
+          "quieres separar el efecto del enlace del de la imagen, enriquece el CSV con una " +
+          "columna de media desde la X API: sin ella los dos van juntos."
+        : "No cambies nada por este hallazgo. Si quieres saber si el mérito es del enlace o de " +
+          "la imagen, enriquece el CSV con una columna de media desde la X API: sin ella los " +
+          "dos van juntos y no se pueden atribuir por separado.",
       codeRef: "home-mixer/params/param.rs:336",
     });
   }
@@ -239,14 +273,27 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   // Requiere hora del día: sin ella, dos posts del mismo día tienen marca de
   // tiempo idéntica y TODOS parecerían publicados a la vez. Sobre un export
   // real de 457 posts eso producía 329 "ráfagas" inexistentes.
-  if (hasTimeOfDay && burstPenalty.burstCount > 0) {
+  // El suelo de muestra y la severidad relativa evitan que 5 posts seguidos
+  // en un fichero de 5 produzcan un hallazgo de severidad alta.
+  const burstShare =
+    posts.length > 0 ? burstPenalty.burstCount / posts.length : 0;
+  if (
+    hasTimeOfDay &&
+    posts.length >= MIN_GROUP_SIZE &&
+    burstPenalty.burstCount > 0
+  ) {
     findings.push({
       id: "burst-cannibalization",
       title: "Publicas en ráfaga y te canibalizas el alcance",
-      severity: burstPenalty.estimatedLoss > 2 ? "alta" : "media",
+      // Relativa al volumen, no a una suma absoluta: `estimatedLoss` crece
+      // con el número de posts y en una cuenta grande superaría cualquier
+      // umbral fijo por pura acumulación.
+      severity: burstShare > 0.25 ? "alta" : "media",
       evidence:
-        `${burstPenalty.burstCount} posts publicados a menos de una hora del anterior. ` +
-        `Multiplicador de diversidad estimado perdido: ${burstPenalty.estimatedLoss.toFixed(2)}.`,
+        `${burstPenalty.burstCount} de ${posts.length} posts (${pct(burstShare)}) se ` +
+        `publicaron a menos de una hora del anterior. Suma de multiplicador perdido: ` +
+        `${burstPenalty.estimatedLoss.toFixed(2)}, equivalente a ceder el alcance de unos ` +
+        `${burstPenalty.estimatedLoss.toFixed(1)} posts.`,
       explanation:
         `El multiplicador del k-ésimo post del mismo autor en un slate es ` +
         `(1 - 0.25) × 0.5^k + 0.25: el segundo post vale un 62.5%, el tercero un 43.75%, ` +
@@ -296,6 +343,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   }
 
   // 5. Alcance desperdiciado
+  let wastedPostIds: string[] = [];
   if (posts.length >= MIN_GROUP_SIZE) {
     const impressionsP90 = quantile(posts.map((p) => p.row.impressions), 0.9);
     const scoreP25 = quantile(scores, 0.25);
@@ -309,6 +357,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
       (p) => p.row.impressions >= impressionsP90 && p.algoScore <= scoreP25,
     );
     if (hasSpread && wasted.length >= 2) {
+      wastedPostIds = wasted.map((p) => p.row.id);
       findings.push({
         id: "wasted-reach",
         title: "Posts que se comieron alcance sin convertirlo",
@@ -382,5 +431,6 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     findings,
     burstPenalty,
     hasTimeOfDay,
+    wastedPostIds,
   };
 }

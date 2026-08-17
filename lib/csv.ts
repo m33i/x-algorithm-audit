@@ -39,7 +39,17 @@ const COLUMN_ALIASES: Record<keyof PostRow, string[]> = {
   newFollows: ["newfollows", "follows", "newfollowers"],
   detailExpands: ["detailexpands", "detailexpand", "expands"],
   urlClicks: ["urlclicks", "linkclicks", "urlclick"],
-  mediaViews: ["mediaviews", "mediaview", "videoviews"],
+  // `hasmedia`/`media` permiten cumplir la promesa que hacen el README, la UI
+  // y los comentarios de cohorts/features: enriquecer el CSV desde la X API
+  // (expansions=attachments.media_keys) reactiva la detección de media. Sin
+  // estos alias esa vía de escape no existía.
+  mediaViews: [
+    "mediaviews",
+    "mediaview",
+    "videoviews",
+    "hasmedia",
+    "media",
+  ],
   profileVisits: ["profilevisits", "profileclicks", "profilevisit"],
   bookmarks: ["bookmarks", "bookmark"],
   engagements: ["engagements", "engagement", "totalengagements"],
@@ -72,6 +82,15 @@ function toNumber(raw: string | undefined): number | null {
   if (raw === undefined) return null;
   const cleaned = raw.replace(/[,\s%]/g, "");
   if (cleaned === "") return null;
+
+  // Una columna de media enriquecida desde la API suele venir como booleano.
+  // Se mapea a 1/0 para que `hasMedia` (mediaViews > 0) funcione con ella.
+  const lower = cleaned.toLowerCase();
+  if (lower === "true" || lower === "yes" || lower === "si" || lower === "sí") {
+    return 1;
+  }
+  if (lower === "false" || lower === "no") return 0;
+
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
