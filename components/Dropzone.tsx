@@ -4,19 +4,22 @@ import { useCallback, useState } from "react";
 
 interface Props {
   onFile: (text: string) => void;
+  onError: (message: string) => void;
   error: string | null;
 }
 
-export function Dropzone({ onFile, error }: Props) {
+export function Dropzone({ onFile, onError, error }: Props) {
   const [dragging, setDragging] = useState(false);
 
   const read = useCallback(
     (file: File) => {
       const reader = new FileReader();
       reader.onload = () => onFile(String(reader.result));
+      reader.onerror = () =>
+        onError("No se ha podido leer el fichero. Inténtalo de nuevo.");
       reader.readAsText(file);
     },
-    [onFile],
+    [onFile, onError],
   );
 
   return (
@@ -33,7 +36,7 @@ export function Dropzone({ onFile, error }: Props) {
           const file = e.dataTransfer.files[0];
           if (file) read(file);
         }}
-        className={`flex h-48 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition ${
+        className={`flex h-48 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition focus-within:ring-2 focus-within:ring-neutral-900 dark:focus-within:ring-neutral-100 ${
           dragging
             ? "border-neutral-900 bg-neutral-100 dark:border-neutral-100 dark:bg-neutral-800"
             : "border-neutral-300 dark:border-neutral-700"
@@ -42,7 +45,7 @@ export function Dropzone({ onFile, error }: Props) {
         <input
           type="file"
           accept=".csv,text/csv"
-          className="hidden"
+          className="sr-only"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) read(file);

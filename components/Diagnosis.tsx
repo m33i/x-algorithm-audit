@@ -4,25 +4,7 @@ import { useState } from "react";
 import type { AnalysisReport } from "@/lib/findings";
 import type { ScoredPost } from "@/lib/cohorts";
 import type { Diagnosis as DiagnosisType } from "@/lib/diagnosis-schema";
-
-/** Toma 5 mejores, 5 peores y 5 medianos por AlgoScore. */
-function sample(posts: ScoredPost[]) {
-  const sorted = [...posts].sort((a, b) => b.algoScore - a.algoScore);
-  const mid = Math.floor(sorted.length / 2);
-  const pick = (arr: ScoredPost[], bucket: "mejor" | "peor" | "mediano") =>
-    arr.map((p) => ({
-      bucket,
-      text: p.row.text.slice(0, 2000),
-      algoScore: p.algoScore,
-      impressions: p.row.impressions,
-    }));
-
-  return [
-    ...pick(sorted.slice(0, 5), "mejor"),
-    ...pick(sorted.slice(-5), "peor"),
-    ...pick(sorted.slice(Math.max(0, mid - 2), mid + 3), "mediano"),
-  ].slice(0, 15);
-}
+import { sample } from "@/lib/diagnosis-sample";
 
 export function Diagnosis({
   report,

@@ -54,7 +54,7 @@ export default function Home() {
       </p>
 
       <div className="mt-10 flex justify-center">
-        <Dropzone onFile={handleFile} error={error} />
+        <Dropzone onFile={handleFile} onError={setError} error={error} />
       </div>
 
       <HowItWorks />

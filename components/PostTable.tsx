@@ -20,18 +20,28 @@ export function PostTable({ posts }: { posts: ScoredPost[] }) {
   }, [posts, sortKey, asc]);
 
   function header(key: SortKey, label: string) {
+    const active = sortKey === key;
+    const ariaSort: "ascending" | "descending" | "none" = !active
+      ? "none"
+      : asc
+        ? "ascending"
+        : "descending";
+
     return (
-      <th
-        onClick={() => {
-          if (sortKey === key) setAsc(!asc);
-          else {
-            setSortKey(key);
-            setAsc(false);
-          }
-        }}
-        className="cursor-pointer px-3 py-2 text-right font-medium select-none"
-      >
-        {label} {sortKey === key ? (asc ? "↑" : "↓") : ""}
+      <th aria-sort={ariaSort} className="px-3 py-2 text-right font-medium">
+        <button
+          type="button"
+          onClick={() => {
+            if (active) setAsc(!asc);
+            else {
+              setSortKey(key);
+              setAsc(false);
+            }
+          }}
+          className="cursor-pointer select-none"
+        >
+          {label} {active ? (asc ? "↑" : "↓") : ""}
+        </button>
       </th>
     );
   }
