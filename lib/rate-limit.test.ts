@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { checkRateLimit, resetRateLimits, MAX_REQUESTS, WINDOW_MS } from "./rate-limit";
+import {
+  checkRateLimit,
+  resetRateLimits,
+  rateLimitEntryCount,
+  MAX_REQUESTS,
+  WINDOW_MS,
+  SWEEP_THRESHOLD,
+} from "./rate-limit";
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
@@ -33,5 +40,20 @@ describe("checkRateLimit", () => {
     expect(checkRateLimit("1.1.1.1").allowed).toBe(false);
     vi.advanceTimersByTime(WINDOW_MS + 1000);
     expect(checkRateLimit("1.1.1.1").allowed).toBe(true);
+  });
+
+  it("barre las IPs caducadas una vez el mapa supera SWEEP_THRESHOLD", () => {
+    for (let i = 0; i < SWEEP_THRESHOLD; i++) {
+      checkRateLimit(`10.0.0.${i}`);
+    }
+    expect(rateLimitEntryCount()).toBe(SWEEP_THRESHOLD);
+
+    // Todas las entradas anteriores quedan fuera de la ventana.
+    vi.advanceTimersByTime(WINDOW_MS + 1000);
+
+    // Esta petición dispara el barrido oportunista antes de registrarse.
+    checkRateLimit("nueva-ip");
+
+    expect(rateLimitEntryCount()).toBe(1);
   });
 });

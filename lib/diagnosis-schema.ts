@@ -8,28 +8,30 @@ export const DiagnosisRequestSchema = z.object({
   findings: z
     .array(
       z.object({
-        id: z.string(),
-        title: z.string(),
+        id: z.string().max(200),
+        title: z.string().max(200),
         severity: z.enum(["alta", "media", "baja"]),
-        evidence: z.string(),
-        explanation: z.string(),
-        action: z.string(),
-        codeRef: z.string(),
+        evidence: z.string().max(2000),
+        explanation: z.string().max(2000),
+        action: z.string().max(2000),
+        codeRef: z.string().max(200),
       }),
     )
     .max(30),
   cohorts: z
     .array(
       z.object({
-        id: z.string(),
-        groups: z.array(
-          z.object({
-            label: z.string(),
-            n: z.number().int(),
-            medianScore: z.number(),
-            medianImpressions: z.number(),
-          }),
-        ),
+        id: z.string().max(200),
+        groups: z
+          .array(
+            z.object({
+              label: z.string().max(200),
+              n: z.number().int(),
+              medianScore: z.number(),
+              medianImpressions: z.number(),
+            }),
+          )
+          .max(10),
         pScore: z.number().nullable(),
         significant: z.boolean(),
         insufficientSample: z.boolean(),

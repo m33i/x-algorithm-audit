@@ -8,6 +8,10 @@ import {
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+// La llamada no es streaming y en Opus 5 el thinking está activo por
+// defecto: una respuesta legítima puede superar el timeout por defecto de
+// la plataforma. 60s es válido tanto en Hobby como en Pro.
+export const maxDuration = 60;
 
 const SYSTEM_PROMPT = `Eres un analista que interpreta la auditoría de una cuenta de X contra los pesos de ranking que xAI publicó en github.com/xai-org/x-algorithm.
 
@@ -24,10 +28,17 @@ Reglas estrictas:
 
 Contexto que puedes dar por sabido: una reply pesa 5.0 y un like 0.5; share_via_copy_link pesa 20.0 pero no es observable desde el CSV; open_link pesa 0.2; profile_click vale 0.0.`;
 
+// x-real-ip lo fija el proxy de Vercel y no es controlable por el cliente.
+// El fallback a x-forwarded-for confía en el primer elemento, que SÍ es
+// spoofeable si el despliegue no está detrás de un proxy que lo normalice.
+// Esto es protección contra abuso casual; el control real de un despliegue
+// público es de plataforma (WAF / Vercel Firewall).
 function clientIp(req: Request): string {
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  return "unknown";
 }
 
 export async function POST(req: Request) {
