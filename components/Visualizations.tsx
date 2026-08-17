@@ -299,11 +299,15 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
             <p className="mt-1 text-xs text-neutral-500">
               {posts.length} posts. Línea roja = mediana.
             </p>
-            <div className="relative mt-4 flex h-40 items-end gap-px">
+            {/* Sin separación entre barras: es la convención del histograma
+                (los bins son contiguos) y además hace que el porcentaje de la
+                línea de mediana caiga exactamente sobre su bin. Con `gap-px`
+                los 19 huecos desplazaban la línea varios puntos. */}
+            <div className="relative mt-4 flex h-40 items-end">
               {hist.counts.map((c, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded-t-sm bg-neutral-400 dark:bg-neutral-600"
+                  className="flex-1 border-r border-white bg-neutral-400 last:border-r-0 dark:border-neutral-950 dark:bg-neutral-600"
                   style={{ height: `${(c / hist.maxCount) * 100}%` }}
                   title={`AlgoScore ${(hist.min + i * hist.binSize).toFixed(4)} – ${(hist.min + (i + 1) * hist.binSize).toFixed(4)} · ${c} post${c === 1 ? "" : "s"}`}
                 />
@@ -334,7 +338,7 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
               Eje X: impresiones (log). Eje Y: AlgoScore. Puntos rojos = alcance
               desperdiciado (P90 impresiones, P25 score).
             </p>
-            <div className="relative mt-4 h-40 border-l border-b border-neutral-200 dark:border-neutral-700">
+            <div className="relative mt-4 h-56 border-l border-b border-neutral-200 dark:border-neutral-700">
               {/* Zona wasted reach */}
               {scatter.p90X < 100 && scatter.p25Y < 100 && (
                 <div
@@ -366,10 +370,14 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
                 <div
                   key={p.id}
                   title={`Impresiones: ${p.imp.toLocaleString("es")}\nAlgoScore: ${p.score.toFixed(4)}`}
+                  // Semitransparente: con cientos de posts los puntos se
+                  // solapan, y la opacidad acumulada hace legible la densidad
+                  // en vez de una mancha uniforme. Los de alcance
+                  // desperdiciado van opacos para que no se pierdan.
                   className={`absolute h-1.5 w-1.5 rounded-full ${
                     p.wasted
                       ? "bg-rose-500"
-                      : "bg-neutral-400 dark:bg-neutral-500"
+                      : "bg-neutral-500/40 dark:bg-neutral-400/40"
                   }`}
                   style={{
                     left: `calc(${p.x}% - 3px)`,
