@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scorePost, datasetCoverage, OBSERVABLE_MAX } from "./scoring";
+import { scorePost, datasetCoverage, datasetApproxCoverage, OBSERVABLE_MAX } from "./scoring";
 import { POSITIVE_SUM } from "./weights";
 import type { PostRow } from "./types";
 
@@ -22,6 +22,7 @@ function post(overrides: Partial<PostRow> = {}): PostRow {
     engagements: null,
     hashtagClicks: null,
     permalinkClicks: null,
+    quoteCount: null,
     ...overrides,
   };
 }
@@ -59,10 +60,31 @@ describe("scorePost", () => {
     expect(con.algoScore).toBe(sin.algoScore);
   });
 
-  it("ignora bookmarks: no están en ScoringWeights", () => {
+  it("ignora bookmarks en el score real: no están en ScoringWeights", () => {
     const sin = scorePost(post({ impressions: 1000, likes: 10 }));
     const con = scorePost(post({ impressions: 1000, likes: 10, bookmarks: 500 }));
     expect(con.algoScore).toBe(sin.algoScore);
+  });
+
+  it("pero incorpora bookmarks en el approxScore como proxy de shareViaCopyLink", () => {
+    const con = scorePost(post({ impressions: 1000, likes: 10, bookmarks: 500 }));
+    // proxy 6.0 * (500/1000) = 3.0
+    expect(con.approxScore - con.algoScore).toBeCloseTo(3.0, 10);
+    expect(con.proxyContributions).toHaveLength(1);
+    expect(con.proxyContributions[0].proxies).toBe("shareViaCopyLink");
+  });
+
+  it("no acredita proxy si la columna bookmarks es null", () => {
+    const sin = scorePost(post({ impressions: 1000, likes: 10 }));
+    expect(sin.proxyContributions).toHaveLength(0);
+    expect(sin.approxScore).toBe(sin.algoScore);
+  });
+
+  it("quoteCount activa el peso real quote=5.0", () => {
+    const s = scorePost(post({ impressions: 1000, quoteCount: 10 }));
+    expect(s.algoScore).toBeCloseTo(5.0 * 0.01, 10);
+    const q = s.contributions.find((c) => c.action === "quote");
+    expect(q?.weight).toBe(5.0);
   });
 
   it("acredita mediaViews una sola vez a 0.05", () => {
@@ -106,13 +128,30 @@ describe("scorePost", () => {
 });
 
 describe("cobertura", () => {
-  it("OBSERVABLE_MAX suma 13.15", () => {
-    // reply 5 + follow 4 + share 2 + retweet 1 + fav 0.5
+  it("OBSERVABLE_MAX suma 18.15 (incluye quote=5.0)", () => {
+    // reply 5 + follow 4 + quote 5 + share 2 + retweet 1 + fav 0.5
     // + click 0.4 + openLink 0.2 + media 0.05
-    expect(OBSERVABLE_MAX).toBeCloseTo(13.15, 10);
+    expect(OBSERVABLE_MAX).toBeCloseTo(18.15, 10);
   });
 
-  it("con todas las columnas cubre el 30% del espacio de pesos", () => {
+  it("con todas las columnas cubre ~42% del espacio de pesos (con quote)", () => {
+    const full = post({
+      impressions: 1000,
+      likes: 1,
+      replies: 1,
+      reposts: 1,
+      shares: 1,
+      newFollows: 1,
+      detailExpands: 1,
+      urlClicks: 1,
+      mediaViews: 1,
+      quoteCount: 1,
+    });
+    expect(scorePost(full).coverage).toBeCloseTo(18.15 / POSITIVE_SUM, 10);
+    expect(scorePost(full).coverage).toBeCloseTo(0.4191, 3);
+  });
+
+  it("sin quoteCount la cobertura baja a ~30% (CSV nativo)", () => {
     const full = post({
       impressions: 1000,
       likes: 1,
@@ -126,6 +165,37 @@ describe("cobertura", () => {
     });
     expect(scorePost(full).coverage).toBeCloseTo(13.15 / POSITIVE_SUM, 10);
     expect(scorePost(full).coverage).toBeCloseTo(0.3036, 3);
+  });
+
+  it("approxCoverage añade el peso proxy de bookmarks cuando está presente", () => {
+    const withBookmarks = post({
+      impressions: 1000,
+      likes: 1,
+      replies: 1,
+      reposts: 1,
+      shares: 1,
+      newFollows: 1,
+      detailExpands: 1,
+      urlClicks: 1,
+      mediaViews: 1,
+      bookmarks: 1,
+    });
+    // (13.15 + 6.0) / 43.32
+    expect(scorePost(withBookmarks).approxCoverage).toBeCloseTo(
+      (13.15 + 6.0) / POSITIVE_SUM,
+      10,
+    );
+  });
+
+  it("approxCoverage no añade el proxy si bookmarks es null", () => {
+    const withoutBookmarks = post({
+      impressions: 1000,
+      likes: 1,
+      replies: 1,
+    });
+    expect(scorePost(withoutBookmarks).approxCoverage).toBe(
+      scorePost(withoutBookmarks).coverage,
+    );
   });
 
   it("baja la cobertura cuando faltan columnas", () => {
@@ -143,5 +213,18 @@ describe("cobertura", () => {
 
   it("datasetCoverage es 0 sin filas", () => {
     expect(datasetCoverage([])).toBe(0);
+  });
+
+  it("datasetApproxCoverage añade proxies presentes en cualquier fila", () => {
+    const rows = [
+      post({ id: "a", likes: 1, bookmarks: 1 }),
+      post({ id: "b", replies: 1 }),
+    ];
+    // (0.5 + 5.0 + 6.0) / 43.32
+    expect(datasetApproxCoverage(rows)).toBeCloseTo(11.5 / POSITIVE_SUM, 10);
+  });
+
+  it("datasetApproxCoverage es 0 sin filas", () => {
+    expect(datasetApproxCoverage([])).toBe(0);
   });
 });

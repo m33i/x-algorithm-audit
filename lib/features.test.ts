@@ -21,6 +21,7 @@ function post(overrides: Partial<PostRow> = {}): PostRow {
     engagements: null,
     hashtagClicks: null,
     permalinkClicks: null,
+    quoteCount: null,
     ...overrides,
   };
 }

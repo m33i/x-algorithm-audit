@@ -20,6 +20,12 @@ export interface ScoredPost {
   row: PostRow;
   features: PostFeatures;
   algoScore: number;
+  /**
+   * Score aproximado que añade los pesos proxy (bookmarks como proxy de
+   * share_via_copy_link, etc.). No es el score del ranker; es una
+   * aproximación con mejor cobertura observacional.
+   */
+  approxScore: number;
 }
 
 export interface CohortGroup {
@@ -44,11 +50,15 @@ export interface CohortComparison {
 }
 
 export function scoreAll(rows: PostRow[]): ScoredPost[] {
-  return rows.map((row) => ({
-    row,
-    features: extractFeatures(row),
-    algoScore: scorePost(row).algoScore,
-  }));
+  return rows.map((row) => {
+    const breakdown = scorePost(row);
+    return {
+      row,
+      features: extractFeatures(row),
+      algoScore: breakdown.algoScore,
+      approxScore: breakdown.approxScore,
+    };
+  });
 }
 
 function summarize(label: string, posts: ScoredPost[]): CohortGroup {

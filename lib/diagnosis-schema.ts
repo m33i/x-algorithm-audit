@@ -5,6 +5,8 @@ export const DiagnosisRequestSchema = z.object({
   postCount: z.number().int().positive(),
   medianAlgoScore: z.number(),
   coverage: z.number().min(0).max(1),
+  /** Cobertura efectiva añadiendo pesos proxy (bookmarks como proxy de share_via_copy_link). */
+  approxCoverage: z.number().min(0).max(1),
   findings: z
     .array(
       z.object({
@@ -52,37 +54,3 @@ export const DiagnosisRequestSchema = z.object({
 });
 
 export type DiagnosisRequest = z.infer<typeof DiagnosisRequestSchema>;
-
-/** Lo que Gemini devuelve, validado por structured outputs. */
-export const DiagnosisSchema = z.object({
-  summary: z
-    .string()
-    .describe("Dos o tres frases sobre el estado general de la cuenta."),
-  priorities: z
-    .array(
-      z.object({
-        findingId: z
-          .string()
-          .describe("El id del hallazgo del payload al que corresponde."),
-        why: z
-          .string()
-          .describe("Por qué este hallazgo importa más que los otros."),
-      }),
-    )
-    .describe("Los hallazgos ordenados por impacto esperado."),
-  rewrites: z
-    .array(
-      z.object({
-        original: z.string().describe("El texto original del post."),
-        rewritten: z.string().describe("La reescritura propuesta."),
-        rationale: z
-          .string()
-          .describe(
-            "Qué cambia y contra qué peso del algoritmo juega el cambio.",
-          ),
-      }),
-    )
-    .describe("Reescrituras de los peores posts de la muestra."),
-});
-
-export type Diagnosis = z.infer<typeof DiagnosisSchema>;

@@ -28,6 +28,7 @@ function post(id: string, text: string, likes: number, impressions = 1000): Post
     engagements: null,
     hashtagClicks: null,
     permalinkClicks: null,
+    quoteCount: null,
   };
 }
 

@@ -42,7 +42,7 @@ export type NegativeAction =
  *   cont_click_dwell_time(param.rs:407)
  *
  * Excluido por no existir en el struct ScoringWeights (ranking_scorer.rs:18-58):
- *   bookmark — aparece en engagement_signals.rs:9 y candidate.rs:58 como
+ *   bookmark: aparece en engagement_signals.rs:9 y candidate.rs:58 como
  *   contador, pero no participa en la combinación de scores.
  */
 export const POSITIVE_WEIGHTS = {
@@ -71,6 +71,36 @@ export const NEGATIVE_WEIGHTS = {
   notDwelled: -0.02, // param.rs:469
 } as const satisfies Record<NegativeAction, number>;
 
+/**
+ * Pesos proxy. NO son pesos del algoritmo de X. No aparecen en
+ * `home-mixer/params/param.rs` ni en `home-mixer/scorers/ranking_scorer.rs`.
+ * Son sustitutos aproximados que esta herramienta usa para cubrir parte del
+ * espacio de pesos positivos que el CSV de Analytics deja sin observar.
+ *
+ * El CSV nativo expone ~30% del positive_sum (OBSERVABLE_MAX = 13.15 de
+ * 43.32). Los proxies elevan la cobertura efectiva al añadir señales que el
+ * algoritmo pondera pero que el CSV no desglosa.
+ *
+ * - bookmarks: peso real 0.0 en el algoritmo (no está en ScoringWeights),
+ *   pero el CSV lo expone. Lo usamos como proxy de share_via_copy_link
+ *   (peso real 20.0, inobservable). Guardar un post para leerlo o
+ *   compartirlo después es una intención cercana a copy-link. Peso 6.0 =
+ *   punto medio del rango 4 a 8 que sugiere el análisis de proxies
+ *   disponibles. Es una aproximación, no una transcripción del código.
+ *
+ * Los proxies se mantienen separados del score real (algoScore) y van en un
+ * score aparte (approxScore). Las comparaciones estadísticas de cohortes
+ * usan solo algoScore, nunca approxScore.
+ */
+export const PROXY_WEIGHTS = {
+  bookmarks: 6.0,
+} as const;
+
+/** Suma de los pesos proxy, para calcular la cobertura efectiva. */
+export const PROXY_SUM: number = Object.values(PROXY_WEIGHTS).reduce(
+  (acc, w) => acc + w,
+  0,
+);
 /** Boost aplicado a `reply` cuando el espectador y el autor se siguen mutuamente. param.rs:310 */
 export const BIDIRECTIONAL_FOLLOW_REPLY_BOOST = 15.0;
 

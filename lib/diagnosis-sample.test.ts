@@ -25,6 +25,7 @@ function dataset(n: number): PostRow[] {
       engagements: null,
       hashtagClicks: null,
       permalinkClicks: null,
+      quoteCount: null,
     });
   }
   return rows;

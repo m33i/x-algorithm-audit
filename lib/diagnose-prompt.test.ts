@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
 import { analyze } from "./findings";
 import { scoreAll } from "./cohorts";
 import type { PostRow } from "./types";
@@ -7,9 +6,8 @@ import {
   DIAGNOSIS_SYSTEM_PROMPT,
   buildDiagnosisPayload,
   buildDiagnosisPrompt,
-  buildDiagnosisUserMessage,
 } from "./diagnose-prompt";
-import { DiagnosisRequestSchema, DiagnosisSchema } from "./diagnosis-schema";
+import { DiagnosisRequestSchema } from "./diagnosis-schema";
 
 function post(o: Partial<PostRow> & { id: string }): PostRow {
   return {
@@ -29,6 +27,7 @@ function post(o: Partial<PostRow> & { id: string }): PostRow {
     engagements: null,
     hashtagClicks: null,
     permalinkClicks: null,
+    quoteCount: null,
     ...o,
   };
 }
@@ -86,6 +85,17 @@ describe("buildDiagnosisPayload", () => {
     const payload = buildDiagnosisPayload(report, posts);
     expect(payload.findings).toEqual(report.findings);
   });
+
+  it("incluye approxCoverage además de coverage", () => {
+    const report = fixture();
+    const posts = scoreAll(
+      Array.from({ length: 20 }, (_, i) => post({ id: `x${i}`, likes: i })),
+    );
+    const payload = buildDiagnosisPayload(report, posts);
+    expect(payload).toHaveProperty("coverage");
+    expect(payload).toHaveProperty("approxCoverage");
+    expect(payload.approxCoverage).toBeGreaterThanOrEqual(payload.coverage);
+  });
 });
 
 describe("buildDiagnosisPrompt", () => {
@@ -100,46 +110,25 @@ describe("buildDiagnosisPrompt", () => {
     expect(prompt.startsWith(DIAGNOSIS_SYSTEM_PROMPT)).toBe(true);
   });
 
-  it("incluye el payload como JSON indentado", () => {
+  it("incluye el payload como JSON indentado al final", () => {
     expect(prompt).toContain(JSON.stringify(payload, null, 2));
+    // El JSON va al final, después de las instrucciones.
+    const jsonIndex = prompt.indexOf(JSON.stringify(payload, null, 2));
+    expect(jsonIndex).toBeGreaterThan(DIAGNOSIS_SYSTEM_PROMPT.length);
   });
 
-  it("incluye el schema JSON de salida", () => {
-    expect(prompt).toContain(JSON.stringify(z.toJSONSchema(DiagnosisSchema), null, 2));
+  it("no pide respuesta en JSON: la salida es Markdown estructurado", () => {
+    expect(prompt).not.toMatch(/Responde solo con un JSON/i);
+    expect(prompt).toMatch(/Markdown completo/i);
   });
 
-  it("pide respuesta solo en JSON", () => {
-    expect(prompt).toMatch(/JSON/i);
+  it("contiene la estructura de 10 secciones", () => {
+    expect(prompt).toContain("## 1. Resumen ejecutivo");
+    expect(prompt).toContain("## 10. Conclusión");
   });
 
   it("es determinista: misma entrada, misma salida", () => {
     const again = buildDiagnosisPrompt(payload);
     expect(again).toBe(prompt);
-  });
-});
-
-describe("buildDiagnosisUserMessage", () => {
-  const report = fixture();
-  const posts = scoreAll(
-    Array.from({ length: 20 }, (_, i) => post({ id: `x${i}`, likes: i })),
-  );
-  const payload = buildDiagnosisPayload(report, posts);
-  const userMessage = buildDiagnosisUserMessage(payload);
-
-  it("no incluye el system prompt (va aparte en systemInstruction)", () => {
-    expect(userMessage.startsWith(DIAGNOSIS_SYSTEM_PROMPT)).toBe(false);
-  });
-
-  it("incluye el payload y el schema de salida", () => {
-    expect(userMessage).toContain(JSON.stringify(payload, null, 2));
-    expect(userMessage).toContain(
-      JSON.stringify(z.toJSONSchema(DiagnosisSchema), null, 2),
-    );
-  });
-
-  it("combinado con el system prompt equivale a buildDiagnosisPrompt", () => {
-    expect(DIAGNOSIS_SYSTEM_PROMPT + "\n\n" + userMessage).toBe(
-      buildDiagnosisPrompt(payload),
-    );
   });
 });

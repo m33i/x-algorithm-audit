@@ -49,8 +49,8 @@ export default function Home() {
     <main className="mx-auto flex max-w-4xl flex-col items-center px-6 py-20">
       <h1 className="text-3xl font-bold tracking-tight">x-algorithm-audit</h1>
       <p className="mt-3 max-w-lg text-center text-neutral-600 dark:text-neutral-400">
-        Puntúa tus posts con los pesos de ranking reales que xAI publicó el 13 de
-        agosto de 2026, y descubre qué te está costando alcance.
+        Puntúa tus posts con los pesos de ranking que xAI publicó el 13 de
+        agosto de 2026.
       </p>
 
       <div className="mt-10 flex justify-center">

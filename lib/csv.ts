@@ -45,6 +45,7 @@ const COLUMN_ALIASES: Record<keyof PostRow, string[]> = {
   engagements: ["engagements", "engagement", "totalengagements"],
   hashtagClicks: ["hashtagclicks", "hashtagclick"],
   permalinkClicks: ["permalinkclicks", "permalinkclick"],
+  quoteCount: ["quotecount", "quotes", "quote"],
 };
 
 const REQUIRED_FIELDS: (keyof PostRow)[] = ["id", "date", "text", "impressions"];
@@ -63,6 +64,7 @@ const OPTIONAL_NUMERIC_FIELDS = [
   "engagements",
   "hashtagClicks",
   "permalinkClicks",
+  "quoteCount",
 ] as const;
 
 /** "12,345" → 12345 ; "1.2%" → 1.2 ; "" → null */
@@ -148,6 +150,7 @@ export function parseAnalyticsCsv(csvText: string): ParseResult {
       engagements: null,
       hashtagClicks: null,
       permalinkClicks: null,
+      quoteCount: null,
     };
 
     for (const field of OPTIONAL_NUMERIC_FIELDS) {

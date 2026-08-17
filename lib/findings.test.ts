@@ -20,6 +20,7 @@ function post(o: Partial<PostRow> & { id: string }): PostRow {
     engagements: null,
     hashtagClicks: null,
     permalinkClicks: null,
+    quoteCount: null,
     ...o,
   };
 }

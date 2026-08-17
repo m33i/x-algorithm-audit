@@ -8,7 +8,7 @@ import {
   type ScoredPost,
 } from "./cohorts";
 import { median, quantile } from "./stats";
-import { datasetCoverage } from "./scoring";
+import { datasetCoverage, datasetApproxCoverage } from "./scoring";
 import { diversityMultiplier, POSITIVE_WEIGHTS } from "./weights";
 import type { PostRow } from "./types";
 
@@ -38,7 +38,14 @@ export interface AnalysisReport {
   /** Los posts puntuados, para la tabla y para la muestra del diagnóstico. */
   posts: ScoredPost[];
   medianAlgoScore: number;
+  /** Cobertura real: pesos del algoritmo observables desde el CSV / positive_sum. */
   coverage: number;
+  /**
+   * Cobertura efectiva: añade los pesos proxy (bookmarks como proxy de
+   * share_via_copy_link). Refleja cuánto podemos estimar, aunque sea vía
+   * proxy.
+   */
+  approxCoverage: number;
   cohorts: CohortComparison[];
   findings: Finding[];
   burstPenalty: { burstCount: number; estimatedLoss: number };
@@ -116,6 +123,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const scores = posts.map((p) => p.algoScore);
   const medianAlgoScore = median(scores);
   const coverage = datasetCoverage(rows);
+  const approxCoverage = datasetApproxCoverage(rows);
 
   const cohorts: CohortComparison[] = [
     linkCohort(posts),
@@ -215,10 +223,14 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     });
   }
 
-  // 4. Optimizar señales de peso cero
+  // 4. Señales de peso cero o inobservables
   const totalProfileVisits = posts.reduce((a, p) => a + (p.row.profileVisits ?? 0), 0);
   const totalBookmarks = posts.reduce((a, p) => a + (p.row.bookmarks ?? 0), 0);
-  const zeroWeightTotal = totalProfileVisits + totalBookmarks;
+  // profile_click vale 0.0 real y no tiene proxy. bookmarks también vale 0.0
+  // real, pero se usa como proxy de share_via_copy_link en approxScore. Aquí
+  // reportamos profile_click como señal sin peso ni proxy, y bookmarks como
+  // proxy informativo.
+  const zeroWeightTotal = totalProfileVisits;
   const scoringTotal = totalLikes + totalReplies;
   if (
     posts.length >= MIN_GROUP_SIZE &&
@@ -228,18 +240,23 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   ) {
     findings.push({
       id: "zero-weight-signals",
-      title: "Tu señal más fuerte no puntúa en el ranking",
+      title: "Tu señal más frecuente no puntúa en el ranking",
       severity: "media",
       evidence:
-        `${totalProfileVisits} visitas al perfil y ${totalBookmarks} bookmarks, frente a ` +
-        `${totalLikes} likes y ${totalReplies} replies.`,
+        `${totalProfileVisits} visitas al perfil, frente a ` +
+        `${totalLikes} likes y ${totalReplies} replies ` +
+        `(${totalBookmarks} bookmarks adicionales, usados como proxy de share_via_copy_link).`,
       explanation:
-        `profile_click vale exactamente 0.0 en la configuración por defecto, y bookmark no ` +
-        `aparece en el struct ScoringWeights: se registra como señal y se hidrata el contador, ` +
-        `pero no entra en la combinación de scores del For You.`,
+        `profile_click vale 0.0 en la configuración por defecto del algoritmo ` +
+        `(param.rs:337). bookmarks tampoco aparece en ScoringWeights (peso real ` +
+        `0.0), pero el CSV lo expone y esta herramienta lo usa como proxy ` +
+        `aproximado de share_via_copy_link (peso real 20.0) en el AlgoScore+. ` +
+        `Las visitas al perfil no sustituyen ninguna señal ponderada: peso real ` +
+        `0.0 y sin proxy.`,
       action:
-        "Sigue midiéndolas como salud de marca si te sirven, pero no las uses como objetivo " +
-        "si lo que quieres es distribución.",
+        "Mide las visitas al perfil como salud de marca, no como objetivo de " +
+        "distribución. Los bookmarks sí importan como proxy, pero el algoritmo " +
+        "no las pondera directamente.",
       codeRef: "home-mixer/params/param.rs:337 y home-mixer/scorers/ranking_scorer.rs:18-58",
     });
   }
@@ -326,6 +343,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     posts,
     medianAlgoScore,
     coverage,
+    approxCoverage,
     cohorts,
     findings,
     burstPenalty,

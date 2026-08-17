@@ -3,6 +3,7 @@
 import { FindingCard } from "./FindingCard";
 import { PostTable } from "./PostTable";
 import { Diagnosis } from "./Diagnosis";
+import { Visualizations } from "./Visualizations";
 import type { AnalysisReport } from "@/lib/findings";
 
 interface Props {
@@ -18,7 +19,7 @@ export function Report({ report, skippedRows, onReset }: Props) {
     <div className="space-y-10">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Tu auditoría</h1>
+          <h1 className="text-2xl font-bold">Auditoría</h1>
           <p className="mt-1 text-sm text-neutral-500">
             {report.postCount} posts analizados
             {skippedRows > 0 && ` · ${skippedRows} filas descartadas por falta de datos`}
@@ -33,29 +34,44 @@ export function Report({ report, skippedRows, onReset }: Props) {
         <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
           <p className="text-xs uppercase text-neutral-500">AlgoScore mediano</p>
           <p className="mt-1 font-mono text-2xl">{report.medianAlgoScore.toFixed(4)}</p>
+          <p className="mt-2 text-xs text-neutral-500">
+            Score promedio por espectador. Replicacion del positive_sum del
+            ranker de X (param.rs). Mas alto = mas acciones de peso por
+            impresion.
+          </p>
         </div>
         <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-          <p className="text-xs uppercase text-neutral-500">Cobertura del score</p>
+          <p className="text-xs uppercase text-neutral-500">Cobertura</p>
           <p className="mt-1 font-mono text-2xl">
             {(report.coverage * 100).toFixed(0)}%
+            <span className="ml-2 text-sm text-neutral-500">
+              {(report.approxCoverage * 100).toFixed(0)}% con proxies
+            </span>
           </p>
-          <p className="mt-1 text-xs text-neutral-500">
-            del espacio de pesos positivos es observable desde el CSV
+          <p className="mt-2 text-xs text-neutral-500">
+            Del espacio de pesos positivos (43.32) es medible desde el CSV.
+            El resto son señales inobservables (copy-link, DMs, negativas).
+            Proxies acotan la parte inobservable.
           </p>
         </div>
         <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
           <p className="text-xs uppercase text-neutral-500">Hallazgos</p>
           <p className="mt-1 font-mono text-2xl">{report.findings.length}</p>
+          <p className="mt-2 text-xs text-neutral-500">
+            Patrones con evidencia estadistica (Mann-Whitney U, p &lt; 0.05,
+            minimo 8 posts por grupo). Ordenados por severidad.
+          </p>
         </div>
       </section>
+
+      <Visualizations report={report} />
 
       <section>
         <h2 className="mb-4 text-lg font-semibold">Puntos débiles</h2>
         {report.findings.length === 0 ? (
           <p className="rounded-lg border border-neutral-200 p-5 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-            No hay ningún hallazgo con evidencia suficiente. Esta herramienta exige
-            al menos 8 posts por grupo y p &lt; 0.05 antes de afirmar nada. Con más
-            posts en el CSV es probable que aparezcan patrones.
+            No hay hallazgos con evidencia suficiente. Hace falta un mínimo de
+            8 posts por grupo y p &lt; 0.05 para emitir cualquier conclusión.
           </p>
         ) : (
           <div className="space-y-4">
