@@ -25,6 +25,9 @@ function post(id: string, text: string, likes: number, impressions = 1000): Post
     mediaViews: null,
     profileVisits: null,
     bookmarks: null,
+    engagements: null,
+    hashtagClicks: null,
+    permalinkClicks: null,
   };
 }
 

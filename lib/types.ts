@@ -19,4 +19,13 @@ export interface PostRow {
   profileVisits: number | null;
   /** Sin peso en ScoringWeights. Informativo, excluido del score. */
   bookmarks: number | null;
+
+  /**
+   * Columnas del CSV de Account Analytics que no aparecen en ScoringWeights
+   * (ranking_scorer.rs:18-58) ni tienen parámetro de peso en param.rs.
+   * Informativas, excluidas del score.
+   */
+  engagements: number | null;
+  hashtagClicks: number | null;
+  permalinkClicks: number | null;
 }

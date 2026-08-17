@@ -9,7 +9,7 @@ export interface SamplePost {
 
 /**
  * Toma hasta 5 mejores, 5 peores y 5 medianos por AlgoScore, sin solapar:
- * cada post aparece como mucho en un bucket, así que Claude nunca ve el
+ * cada post aparece como mucho en un bucket, así que Gemini nunca ve el
  * mismo texto bajo dos etiquetas contradictorias.
  *
  * Prioriza mejor y peor; el bucket mediano se rellena con lo que sobra

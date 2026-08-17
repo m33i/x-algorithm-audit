@@ -22,6 +22,9 @@ function dataset(n: number): PostRow[] {
       mediaViews: null,
       profileVisits: null,
       bookmarks: null,
+      engagements: null,
+      hashtagClicks: null,
+      permalinkClicks: null,
     });
   }
   return rows;

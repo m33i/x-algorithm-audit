@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# datos locales sensibles (CSV de analytics de cuentas)
+/datos-locales/

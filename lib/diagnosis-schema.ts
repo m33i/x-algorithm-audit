@@ -53,7 +53,7 @@ export const DiagnosisRequestSchema = z.object({
 
 export type DiagnosisRequest = z.infer<typeof DiagnosisRequestSchema>;
 
-/** Lo que Claude devuelve, validado por structured outputs. */
+/** Lo que Gemini devuelve, validado por structured outputs. */
 export const DiagnosisSchema = z.object({
   summary: z
     .string()

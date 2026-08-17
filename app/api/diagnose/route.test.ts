@@ -1,16 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { resetRateLimits, checkRateLimit, MAX_REQUESTS } from "@/lib/rate-limit";
 
-const { mockParse } = vi.hoisted(() => ({ mockParse: vi.fn() }));
+const { mockGenerateContent } = vi.hoisted(() => ({ mockGenerateContent: vi.fn() }));
 
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: vi.fn().mockImplementation(function AnthropicMock() {
-    return { messages: { parse: mockParse } };
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: vi.fn().mockImplementation(function GoogleGenAIMock() {
+    return { models: { generateContent: mockGenerateContent } };
   }),
-}));
-
-vi.mock("@anthropic-ai/sdk/helpers/zod", () => ({
-  zodOutputFormat: vi.fn(() => ({})),
 }));
 
 // Import después de declarar los mocks: vi.mock se hoistea igualmente,
@@ -41,60 +37,57 @@ function makeRequest(body: unknown = validPayload, headers?: Record<string, stri
 }
 
 describe("POST /api/diagnose", () => {
-  const originalKey = process.env.ANTHROPIC_API_KEY;
+  const originalKey = process.env.GEMINI_API_KEY;
 
   beforeEach(() => {
     resetRateLimits();
-    mockParse.mockReset();
-    process.env.ANTHROPIC_API_KEY = "test-key";
+    mockGenerateContent.mockReset();
+    process.env.GEMINI_API_KEY = "test-key";
   });
 
   afterEach(() => {
-    if (originalKey === undefined) delete process.env.ANTHROPIC_API_KEY;
-    else process.env.ANTHROPIC_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
   });
 
-  it("responde 503 si falta ANTHROPIC_API_KEY", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it("responde 503 si falta GEMINI_API_KEY", async () => {
+    delete process.env.GEMINI_API_KEY;
     const res = await POST(makeRequest());
     expect(res.status).toBe(503);
-    expect(mockParse).not.toHaveBeenCalled();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
   it("responde 400 con un payload inválido", async () => {
     const res = await POST(makeRequest({ postCount: "no-es-un-numero" }));
     expect(res.status).toBe(400);
-    expect(mockParse).not.toHaveBeenCalled();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
   it("responde 429 con Retry-After cuando se agota el rate limit", async () => {
     // Agota el cubo de la IP "unknown" (sin cabeceras de proxy) directamente,
-    // sin depender de que el mock de Anthropic resuelva con éxito 5 veces.
+    // sin depender de que el mock de Gemini resuelva con éxito 5 veces.
     for (let i = 0; i < MAX_REQUESTS; i++) checkRateLimit("unknown");
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBeTruthy();
-    expect(mockParse).not.toHaveBeenCalled();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
-  it("responde 502 cuando el modelo rechaza responder (stop_reason refusal)", async () => {
-    mockParse.mockResolvedValue({ stop_reason: "refusal", parsed_output: null });
+  it("responde 502 cuando el modelo devuelve texto vacío (rechazo)", async () => {
+    mockGenerateContent.mockResolvedValue({ text: "" });
     const res = await POST(makeRequest());
     expect(res.status).toBe(502);
   });
 
-  it("responde 502 cuando parsed_output llega null", async () => {
-    mockParse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: null });
+  it("responde 502 cuando el JSON devuelto no valida el schema", async () => {
+    mockGenerateContent.mockResolvedValue({ text: "{ \"summary\": 42 }" });
     const res = await POST(makeRequest());
     expect(res.status).toBe(502);
   });
 
   it("responde 200 con el diagnóstico en el caso feliz", async () => {
-    mockParse.mockResolvedValue({
-      stop_reason: "end_turn",
-      parsed_output: validDiagnosis,
-    });
+    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validDiagnosis) });
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -102,7 +95,7 @@ describe("POST /api/diagnose", () => {
   });
 
   it("responde 500 si el SDK lanza", async () => {
-    mockParse.mockRejectedValue(new Error("network boom"));
+    mockGenerateContent.mockRejectedValue(new Error("network boom"));
     const res = await POST(makeRequest());
     expect(res.status).toBe(500);
   });

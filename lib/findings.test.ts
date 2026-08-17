@@ -17,6 +17,9 @@ function post(o: Partial<PostRow> & { id: string }): PostRow {
     mediaViews: null,
     profileVisits: null,
     bookmarks: null,
+    engagements: null,
+    hashtagClicks: null,
+    permalinkClicks: null,
     ...o,
   };
 }

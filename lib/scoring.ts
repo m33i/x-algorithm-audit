@@ -19,18 +19,24 @@ import type { PostRow } from "./types";
 /** Acciones del algoritmo que el CSV de Analytics permite observar. */
 const OBSERVABLE: {
   action: keyof typeof POSITIVE_WEIGHTS;
-  column: keyof PostRow;
+  /** Columnas del CSV que alimentan esta acción. Suma de las presentes. */
+  columns: Exclude<keyof PostRow, "id" | "date" | "text" | "impressions">[];
 }[] = [
-  { action: "reply", column: "replies" },
-  { action: "followAuthor", column: "newFollows" },
-  { action: "share", column: "shares" },
-  { action: "retweet", column: "reposts" },
-  { action: "favorite", column: "likes" },
-  { action: "click", column: "detailExpands" },
-  { action: "openLink", column: "urlClicks" },
+  { action: "reply", columns: ["replies"] },
+  { action: "followAuthor", columns: ["newFollows"] },
+  { action: "share", columns: ["shares"] },
+  { action: "retweet", columns: ["reposts"] },
+  { action: "favorite", columns: ["likes"] },
+  // `click` (param.rs:335) cubre el clic en el post. El CSV expone dos
+  // formas observables: Detail Expands (expandir inline) y Permalink
+  // Clicks (abrir la página del post). Ambas son la misma acción `click`
+  // desde el punto de vista del ranker, así que se suman como una sola
+  // cuenta, sin duplicar el peso 0.4.
+  { action: "click", columns: ["detailExpands", "permalinkClicks"] },
+  { action: "openLink", columns: ["urlClicks"] },
   // Una sola columna cubre photo_expand, video_open y vqv (0.05 cada una).
   // Se acredita 0.05 una única vez para no inflar el score.
-  { action: "photoExpand", column: "mediaViews" },
+  { action: "photoExpand", columns: ["mediaViews"] },
 ];
 
 /** Suma de los pesos observables: 13.15 de los 43.32 del positive_sum. */
@@ -42,7 +48,7 @@ export const OBSERVABLE_MAX: number = OBSERVABLE.reduce(
 export interface Contribution {
   action: string;
   weight: number;
-  /** acción / impresiones */
+  /** (Σ columnas) / impresiones */
   probability: number;
   /** peso × probabilidad */
   points: number;
@@ -67,9 +73,18 @@ export function scorePost(row: PostRow): ScoreBreakdown {
   let algoScore = 0;
   let observedWeight = 0;
 
-  for (const { action, column } of OBSERVABLE) {
-    const count = row[column];
-    if (count === null || typeof count !== "number") continue;
+  for (const { action, columns } of OBSERVABLE) {
+    // ¿Hay alguna columna presente (no null) para esta acción?
+    // Si todas son null, la acción no es observable en este post y su peso
+    // no cuenta para la cobertura.
+    const present = columns.some((col) => row[col] !== null);
+    if (!present) continue;
+
+    // Suma de las columnas presentes. Las ausentes (null) contribuyen 0.
+    const count = columns.reduce((acc, col) => {
+      const v = row[col];
+      return acc + (typeof v === "number" ? v : 0);
+    }, 0);
 
     const weight = POSITIVE_WEIGHTS[action];
     observedWeight += weight;
@@ -100,8 +115,8 @@ export function datasetCoverage(rows: PostRow[]): number {
   if (rows.length === 0) return 0;
 
   let observedWeight = 0;
-  for (const { action, column } of OBSERVABLE) {
-    const present = rows.some((r) => r[column] !== null);
+  for (const { action, columns } of OBSERVABLE) {
+    const present = columns.some((col) => rows.some((r) => r[col] !== null));
     if (present) observedWeight += POSITIVE_WEIGHTS[action];
   }
   return observedWeight / POSITIVE_SUM;

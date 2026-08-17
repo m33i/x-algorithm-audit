@@ -4,7 +4,12 @@ import { useState } from "react";
 import type { AnalysisReport } from "@/lib/findings";
 import type { ScoredPost } from "@/lib/cohorts";
 import type { Diagnosis as DiagnosisType } from "@/lib/diagnosis-schema";
-import { sample } from "@/lib/diagnosis-sample";
+import {
+  buildDiagnosisPayload,
+  buildDiagnosisPrompt,
+} from "@/lib/diagnose-prompt";
+
+type State = "idle" | "loading" | "done" | "error" | "prompt";
 
 export function Diagnosis({
   report,
@@ -13,30 +18,19 @@ export function Diagnosis({
   report: AnalysisReport;
   posts: ScoredPost[];
 }) {
-  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [state, setState] = useState<State>("idle");
   const [diagnosis, setDiagnosis] = useState<DiagnosisType | null>(null);
   const [message, setMessage] = useState("");
+  const [promptText, setPromptText] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  async function run() {
+  async function runGemini() {
     setState("loading");
     try {
       const res = await fetch("/api/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postCount: report.postCount,
-          medianAlgoScore: report.medianAlgoScore,
-          coverage: report.coverage,
-          findings: report.findings,
-          cohorts: report.cohorts.map((c) => ({
-            id: c.id,
-            groups: c.groups,
-            pScore: c.pScore,
-            significant: c.significant,
-            insufficientSample: c.insufficientSample,
-          })),
-          samplePosts: sample(posts),
-        }),
+        body: JSON.stringify(buildDiagnosisPayload(report, posts)),
       });
 
       if (!res.ok) {
@@ -55,20 +49,95 @@ export function Diagnosis({
     }
   }
 
+  function buildPrompt() {
+    const payload = buildDiagnosisPayload(report, posts);
+    setPromptText(buildDiagnosisPrompt(payload));
+    setCopied(false);
+    setState("prompt");
+  }
+
+  async function copyPrompt() {
+    if (!promptText) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(promptText);
+      } else {
+        // Fallback para contextos sin Clipboard API (HTTP antiguo).
+        const ta = document.createElement("textarea");
+        ta.value = promptText;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   if (state === "idle") {
     return (
       <div className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
         <h2 className="font-semibold">Diagnóstico redactado</h2>
         <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-          Envía los agregados de arriba y el texto de 15 de tus posts a Claude para
+          Envía los agregados de arriba y el texto de 15 de tus posts a Gemini para
           obtener el diagnóstico narrado y reescrituras. Tu CSV no se envía.
         </p>
-        <button
-          onClick={run}
-          className="mt-4 rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
-        >
-          Generar diagnóstico
-        </button>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+          ¿Sin clave de Gemini o prefieres otro modelo? Copia el prompt y pégalo
+          en el chat de tu LLM favorito.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={runGemini}
+            className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+          >
+            Generar diagnóstico
+          </button>
+          <button
+            onClick={buildPrompt}
+            className="rounded border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-900 dark:border-neutral-700 dark:text-neutral-100"
+          >
+            Copiar prompt para tu LLM
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "prompt") {
+    return (
+      <div className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="font-semibold">Prompt para tu LLM</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={copyPrompt}
+              className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+            >
+              {copied ? "Copiado ✓" : "Copiar al portapapeles"}
+            </button>
+            <button
+              onClick={() => setState("idle")}
+              className="text-xs underline underline-offset-2"
+            >
+              Volver
+            </button>
+          </div>
+        </div>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+          Pégalo en el chat de Gemini, Claude, GPT o el que prefieras. El prompt
+          pide una respuesta en JSON con el mismo schema que usa el endpoint.
+        </p>
+        <textarea
+          readOnly
+          value={promptText}
+          onFocus={(e) => e.currentTarget.select()}
+          className="mt-4 h-96 w-full resize-y rounded border border-neutral-300 bg-neutral-50 p-3 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
+        />
       </div>
     );
   }

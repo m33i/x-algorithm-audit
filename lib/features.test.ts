@@ -18,6 +18,9 @@ function post(overrides: Partial<PostRow> = {}): PostRow {
     mediaViews: null,
     profileVisits: null,
     bookmarks: null,
+    engagements: null,
+    hashtagClicks: null,
+    permalinkClicks: null,
     ...overrides,
   };
 }

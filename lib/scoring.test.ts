@@ -19,6 +19,9 @@ function post(overrides: Partial<PostRow> = {}): PostRow {
     mediaViews: null,
     profileVisits: null,
     bookmarks: null,
+    engagements: null,
+    hashtagClicks: null,
+    permalinkClicks: null,
     ...overrides,
   };
 }
@@ -81,6 +84,20 @@ describe("scorePost", () => {
     expect(reply?.weight).toBe(5.0);
     expect(reply?.probability).toBeCloseTo(0.01, 10);
     expect(reply?.points).toBeCloseTo(0.05, 10);
+  });
+
+  it("click suma detailExpands + permalinkClicks bajo un solo peso 0.4", () => {
+    const soloDetail = scorePost(post({ impressions: 1000, detailExpands: 50 }));
+    const soloPermalink = scorePost(post({ impressions: 1000, permalinkClicks: 50 }));
+    const ambos = scorePost(
+      post({ impressions: 1000, detailExpands: 30, permalinkClicks: 20 }),
+    );
+    expect(soloDetail.algoScore).toBeCloseTo(0.4 * 0.05, 10);
+    expect(soloPermalink.algoScore).toBeCloseTo(0.4 * 0.05, 10);
+    // 50 clicks combinados → misma cuenta que 50 en una sola columna.
+    expect(ambos.algoScore).toBeCloseTo(0.4 * 0.05, 10);
+    // Una sola contribución `click`, sin duplicar el peso.
+    expect(ambos.contributions.filter((c) => c.action === "click")).toHaveLength(1);
   });
 
   it("lanza si las impresiones no son positivas", () => {
