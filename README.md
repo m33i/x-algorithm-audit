@@ -528,6 +528,7 @@ en este repo con la referencia a la linea de `param.rs` o
 
 ## Licencia
 
-MIT. Los pesos del algoritmo de X son de xAI bajo Apache 2.0
-(`github.com/xai-org/x-algorithm`). Esta herramienta es independiente y no
-esta afiliada a xAI.
+MIT. Los pesos de `lib/weights.ts` son una transcripción del código de xAI
+(`github.com/xai-org/x-algorithm`, Apache 2.0), reescrita de Rust a
+TypeScript. Esta herramienta es independiente y no está afiliada a X Corp.
+ni a xAI.

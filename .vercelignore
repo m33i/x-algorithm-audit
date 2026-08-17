@@ -1,0 +1,30 @@
+# Qué NO se sube a Vercel al desplegar con la CLI.
+#
+# Sin este fichero, la CLI cae por defecto en .gitignore. Funciona, pero
+# deja los datos sensibles a merced de una edición de .gitignore. Esto lo
+# declara aparte y de forma explícita.
+
+# CSV de analytics de cuentas reales. Nunca sale de esta máquina.
+datos-locales/
+
+# Secretos
+.env
+.env.*
+!.env.example
+*.pem
+
+# Artefactos locales que Vercel reconstruye
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+
+# Ruido de desarrollo
+.git/
+.vercel
+.claude/
+.superpowers/
+.DS_Store
+*-debug.log*

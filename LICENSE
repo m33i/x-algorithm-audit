@@ -22,5 +22,10 @@ SOFTWARE.
 
 ---
 
-The ranking weights transcribed in lib/weights.ts are derived from
-github.com/xai-org/x-algorithm, published by xAI under the Apache License 2.0.
+The ranking weights in lib/weights.ts are transcribed from
+github.com/xai-org/x-algorithm, published by xAI under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). The transcription is modified:
+Rust constants restated as TypeScript.
+
+This project is independent and is not affiliated with, sponsored by, or
+endorsed by X Corp. or xAI.

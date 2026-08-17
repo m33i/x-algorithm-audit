@@ -4,6 +4,10 @@
  * Fuente: github.com/xai-org/x-algorithm, commit c65aa17 (Apache 2.0).
  * Fichero local de referencia: ../x-algorithm/home-mixer/params/param.rs
  *
+ * MODIFICADO respecto del original: las constantes de Rust se reescriben
+ * como constantes de TypeScript y los nombres pasan de snake_case a
+ * camelCase.
+ *
  * Este módulo no contiene lógica. Solo constantes y la fórmula de decay,
  * cada una con la referencia a su línea en el código fuente.
  */

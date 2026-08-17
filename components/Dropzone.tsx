@@ -8,11 +8,30 @@ interface Props {
   error: string | null;
 }
 
+/**
+ * Tope de tamaño. Un export de Analytics ronda los 350 bytes por post, así
+ * que 25 MB son ~75.000 posts: inalcanzable para un export real, de modo
+ * que nadie con una cuenta muy activa se come un rechazo falso.
+ *
+ * No filtra por tipo a propósito: `file.type` viene vacío o como
+ * application/vnd.ms-excel según el sistema, y el parser ya devuelve un
+ * error claro con cualquier fichero que no sea el CSV. Esto solo evita que
+ * soltar un vídeo por error congele la pestaña.
+ */
+const MAX_BYTES = 25 * 1024 * 1024;
+
 export function Dropzone({ onFile, onError, error }: Props) {
   const [dragging, setDragging] = useState(false);
 
   const read = useCallback(
     (file: File) => {
+      if (file.size > MAX_BYTES) {
+        const mb = (file.size / 1024 / 1024).toFixed(1);
+        onError(
+          `Ese fichero pesa ${mb} MB y el tope son 25 MB. Un export de Analytics no llega ni a 1 MB, así que probablemente no sea el CSV.`,
+        );
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => onFile(String(reader.result));
       reader.onerror = () =>
