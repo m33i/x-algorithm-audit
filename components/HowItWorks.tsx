@@ -1,3 +1,5 @@
+import { Code, CodeRef } from "./Code";
+
 export function HowItWorks() {
   return (
     <section className="mx-auto mt-16 max-w-2xl space-y-6 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
@@ -29,10 +31,11 @@ export function HowItWorks() {
         <h2 className="mb-2 font-semibold text-neutral-900 dark:text-neutral-100">
           Cómo se calcula
         </h2>
-        <p>
-          El 13 de agosto de 2026 xAI publicó el código que rankea el For You.
-          Los pesos están en <code>home-mixer/params/param.rs</code>. Esta
-          herramienta los aplica a tus posts.
+        <p>El 13 de agosto de 2026 xAI publicó el código que rankea el For You.</p>
+        <p className="mt-3">
+          Los pesos están en{" "}
+          <CodeRef path="home-mixer/params/param.rs:283-293" label="home-mixer/params/param.rs" />
+          . Esta herramienta los aplica a tus posts.
         </p>
         <p className="mt-3">
           El código advierte que los pesos multiplican{" "}
@@ -40,8 +43,8 @@ export function HowItWorks() {
           cada acción se divide entre las impresiones, que es lo que convierte
           un contador en una probabilidad empírica.
         </p>
-        <p className="mt-3 font-mono text-xs">
-          AlgoScore = Σ ( peso × acción / impresiones )
+        <p className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-mono text-xs text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
+          AlgoScore = Σ ( peso × acción ÷ impresiones )
         </p>
       </div>
 
@@ -59,7 +62,7 @@ export function HowItWorks() {
           Hay una limitación más, y conviene tenerla presente al leer el
           hallazgo de enlaces: <strong>tampoco se puede detectar si un post
           lleva imagen o vídeo</strong>. El CSV no trae ninguna columna de
-          media, y X acorta a <code>t.co</code> tanto los enlaces externos
+          media, y X acorta a <Code>t.co</Code> tanto los enlaces externos
           como los adjuntos, sin nada que los distinga. Por eso la cohorte de
           enlaces compara en realidad &ldquo;posts con algo adjunto&rdquo;
           contra &ldquo;posts de solo texto&rdquo;, y la cohorte de media
@@ -74,23 +77,32 @@ export function HowItWorks() {
         <p>
           Es una asimetría de acceso, no de ingenio, y se ve en el código
           publicado. Cada post que entra al ranker lleva un campo booleano
-          explícito, <code>has_media</code>{" "}
-          (<code>home-mixer/models/candidate.rs:50</code>), que no se infiere
-          del texto: lo rellena un servicio dedicado consultando la propia
-          base de datos de media de X{" "}
-          (<code>candidate_hydrators/media_info_hydrator.rs</code>).
+          explícito, <Code>has_media</Code>{" "}
+          (<CodeRef path="home-mixer/models/candidate.rs:50" />), que no se
+          infiere del texto: lo rellena un servicio dedicado consultando la
+          propia base de datos de media de X{" "}
+          (
+          <CodeRef
+            path="home-mixer/candidate_hydrators/media_info_hydrator.rs"
+            label="candidate_hydrators/media_info_hydrator.rs"
+          />
+          ).
         </p>
         <p className="mt-3">
           Ese booleano llega al modelo tal cual, dentro de{" "}
-          <code>TweetBoolFeatures</code>{" "}
-          (<code>candidate.rs:195-200</code>), junto a{" "}
-          <code>is_retweet</code>, <code>is_quote</code> e{" "}
-          <code>is_reply</code>. Ninguno de los cuatro sale del texto: salen
+          <Code>TweetBoolFeatures</Code>{" "}
+          (
+          <CodeRef
+            path="home-mixer/models/candidate.rs:195-200"
+            label="candidate.rs:195-200"
+          />
+          ), junto a <Code>is_retweet</Code>, <Code>is_quote</Code> e{" "}
+          <Code>is_reply</Code>. Ninguno de los cuatro sale del texto: salen
           de si existen los identificadores correspondientes. Phoenix no
           adivina si hay una imagen: se lo dicen.
         </p>
         <p className="mt-3">
-          El <code>t.co</code> es lo que queda cuando el post se{" "}
+          El <Code>t.co</Code> es lo que queda cuando el post se{" "}
           <em>renderiza a texto</em>. La información estructurada (qué entidad
           era ese enlace acortado) se pierde en esa proyección, y el CSV de
           Analytics solo nos entrega la proyección. No hay forma de
@@ -100,7 +112,7 @@ export function HowItWorks() {
         </p>
         <p className="mt-3">
           Lo resolvería la X API v2 con{" "}
-          <code>expansions=attachments.media_keys</code>, que devuelve las
+          <Code>expansions=attachments.media_keys</Code>, que devuelve las
           entidades separadas: exactamente el mismo dato que el servicio
           interno le pasa al ranker. Esta herramienta no lo usa porque no
           requiere credenciales de API, y preferimos declarar el límite antes
@@ -114,18 +126,18 @@ export function HowItWorks() {
           <li>
             <strong>Quote count</strong> sí <em>aumenta</em> la cobertura: es
             el peso real 5.0 del algoritmo, y se activa si enriqueces el CSV
-            con <code>public_metrics.quote_count</code> de la X API v2. Con esa
+            con <Code>public_metrics.quote_count</Code> de la X API v2. Con esa
             columna la cobertura sube del 30% al 42%. Sin ella, queda fuera.
           </li>
           <li>
             <strong>Bookmarks</strong> <em>no</em> aumenta la cobertura: la
             estima. El bookmark no aparece en el struct de pesos del
             algoritmo, así que no tiene peso. Ojo, eso es distinto de valer
-            0.0 como <code>profile_click</code>, que sí está en el struct
-            puesto a cero. Esta herramienta lo usa como sustituto de
-            share_via_copy_link con un peso de 6.0 <strong>inventado por
-            nosotros</strong>, porque guardar un post es la intención más
-            cercana que el CSV expone.
+            0.0 como <Code>profile_click</Code>, que sí está en el struct
+            puesto a cero. Esta herramienta lo usa como sustituto de{" "}
+            <Code>share_via_copy_link</Code> con un peso de 6.0{" "}
+            <strong>inventado por nosotros</strong>, porque guardar un post es
+            la intención más cercana que el CSV expone.
           </li>
         </ul>
         <p className="mt-3">

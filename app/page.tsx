@@ -53,10 +53,10 @@ export default function Home() {
         <XLogo className="h-[0.78em] w-[0.78em]" />
         <span aria-hidden="true">Algorithm Audit</span>
       </h1>
-      <p className="mt-3 max-w-lg text-center text-neutral-600 dark:text-neutral-400">
-        Puntúa tus posts con los pesos de ranking publicados por xAI.
+      <p className="mt-4 max-w-xl text-center text-base leading-relaxed text-neutral-700 dark:text-neutral-300">
+        Puntúa tus posts con los pesos reales del algoritmo de X. <br></br>
+        Mira qué frena tu alcance y la linea de codigo que lo decide.
       </p>
-
       <div className="mt-10 flex justify-center">
         <Dropzone onFile={handleFile} onError={setError} error={error} />
       </div>

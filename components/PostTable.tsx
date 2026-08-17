@@ -25,7 +25,14 @@ export function PostTable({ posts }: { posts: ScoredPost[] }) {
   const visible = sorted.slice(0, limit);
   const hasMore = sorted.length > limit;
 
-  function header(key: SortKey, label: string) {
+  // Sin columna de bookmarks en el CSV, approxScore === algoScore y la columna
+  // AlgoScore+ sería una copia exacta al lado: ruido, y encima confuso.
+  const hasProxy = useMemo(
+    () => posts.some((p) => p.approxScore !== p.algoScore),
+    [posts],
+  );
+
+  function header(key: SortKey, label: string, hint?: string) {
     const active = sortKey === key;
     const ariaSort: "ascending" | "descending" | "none" = !active
       ? "none"
@@ -37,6 +44,7 @@ export function PostTable({ posts }: { posts: ScoredPost[] }) {
       <th aria-sort={ariaSort} className="px-3 py-2 text-right font-medium">
         <button
           type="button"
+          title={hint}
           onClick={() => {
             if (active) setAsc(!asc);
             else {
@@ -54,13 +62,38 @@ export function PostTable({ posts }: { posts: ScoredPost[] }) {
 
   return (
     <div className="space-y-3">
+      {hasProxy && (
+        <p className="text-xs leading-relaxed text-neutral-500">
+          <strong className="font-medium text-neutral-700 dark:text-neutral-300">
+            AlgoScore
+          </strong>{" "}
+          usa solo pesos transcritos del código de X, y es el que se compara en
+          todo lo demás.{" "}
+          <strong className="font-medium text-neutral-700 dark:text-neutral-300">
+            AlgoScore+
+          </strong>{" "}
+          le suma una estimación a partir de tus bookmarks, con un peso de 6.0
+          que nos hemos inventado nosotros para tapar un hueco del CSV. Sirve
+          para ordenar y mirar; no es el score del ranker ni entra en ningún
+          test.
+        </p>
+      )}
       <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
         <table className="w-full text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Post</th>
-              {header("algoScore", "AlgoScore")}
-              {header("approxScore", "AlgoScore+")}
+              {header(
+                "algoScore",
+                "AlgoScore",
+                "Solo pesos transcritos del código de X. Es el número que usan todas las comparaciones estadísticas.",
+              )}
+              {hasProxy &&
+                header(
+                  "approxScore",
+                  "AlgoScore+",
+                  "AlgoScore más una estimación de bookmarks con un peso de 6.0 inventado por esta herramienta. No es el score del ranker y no se usa para comparar nada.",
+                )}
               {header("impressions", "Impresiones")}
               {header("date", "Fecha")}
             </tr>
@@ -80,9 +113,11 @@ export function PostTable({ posts }: { posts: ScoredPost[] }) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right font-mono">{p.algoScore.toFixed(4)}</td>
-                <td className="px-3 py-2 text-right font-mono text-neutral-500">
-                  {p.approxScore.toFixed(4)}
-                </td>
+                {hasProxy && (
+                  <td className="px-3 py-2 text-right font-mono text-neutral-500">
+                    {p.approxScore.toFixed(4)}
+                  </td>
+                )}
                 <td className="px-3 py-2 text-right font-mono">
                   {p.row.impressions.toLocaleString("es")}
                 </td>

@@ -16,10 +16,11 @@ export function Diagnosis({
   report: AnalysisReport;
   posts: ScoredPost[];
 }) {
-  const promptText = useMemo(
-    () => buildDiagnosisPrompt(buildDiagnosisPayload(report, posts)),
+  const payload = useMemo(
+    () => buildDiagnosisPayload(report, posts),
     [report, posts],
   );
+  const promptText = useMemo(() => buildDiagnosisPrompt(payload), [payload]);
 
   const [state, setState] = useState<CopyState>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,9 +68,17 @@ export function Diagnosis({
             Cópialo y pégalo en el chat de Gemini, Claude, GPT o el LLM que
             prefieras. Devuelve un diagnóstico con 10 secciones: resumen
             ejecutivo, priorización por impacto, análisis de cohortes,
-            reescrituras del bucket &ldquo;peor&rdquo;, plan de acción y
-            métricas de seguimiento. El CSV no se envía: solo agregados y una
-            muestra de 15 posts.
+            reescrituras de tus peores posts, plan de acción y métricas de
+            seguimiento.
+          </p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            No se envía el CSV, solo los agregados ya calculados y el texto de{" "}
+            {payload.sampleIsComplete
+              ? `tus ${payload.samplePosts.length} posts`
+              : `${payload.samplePosts.length} de tus ${payload.postCount} posts`}
+            . No le adjuntes el CSV además del prompt: si el LLM ve las columnas
+            crudas se pone a recalcular por su cuenta, y sus números no llevan
+            ni la división por impresiones ni los pesos correctos.
           </p>
         </div>
         <button

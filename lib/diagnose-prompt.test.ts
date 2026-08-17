@@ -66,15 +66,29 @@ describe("buildDiagnosisPayload", () => {
     }
   });
 
-  it("incluye hasta 15 posts de muestra en buckets mejor/peor/mediano", () => {
+  it("incluye los posts de muestra en buckets mejor/peor/mediano", () => {
     const report = fixture();
     const posts = scoreAll(
       Array.from({ length: 50 }, (_, i) => post({ id: `x${i}`, likes: i * 10 })),
     );
     const payload = buildDiagnosisPayload(report, posts);
-    expect(payload.samplePosts.length).toBeLessThanOrEqual(15);
+    expect(payload.samplePosts.length).toBeLessThanOrEqual(120);
     const buckets = new Set(payload.samplePosts.map((s) => s.bucket));
     expect(buckets.has("mejor") || buckets.has("peor")).toBe(true);
+  });
+
+  it("marca sampleIsComplete según quepan todos los posts o no", () => {
+    const report = fixture();
+
+    const pocos = scoreAll(
+      Array.from({ length: 30 }, (_, i) => post({ id: `x${i}`, likes: i })),
+    );
+    expect(buildDiagnosisPayload(report, pocos).sampleIsComplete).toBe(true);
+
+    const muchos = scoreAll(
+      Array.from({ length: 400 }, (_, i) => post({ id: `y${i}`, likes: i })),
+    );
+    expect(buildDiagnosisPayload(report, muchos).sampleIsComplete).toBe(false);
   });
 
   it("arrastra los hallazgos del report", () => {
@@ -127,6 +141,27 @@ describe("buildDiagnosisPrompt", () => {
   it("contiene la estructura de 10 secciones", () => {
     expect(prompt).toContain("## 1. Resumen ejecutivo");
     expect(prompt).toContain("## 10. Conclusión");
+    for (let i = 1; i <= 10; i++) {
+      expect(prompt).toContain(`## ${i}. `);
+    }
+  });
+
+  it("marca los ejemplos few-shot como ilustrativos para que no se citen como datos", () => {
+    expect(prompt).toMatch(/EJEMPLOS ILUSTRATIVOS/);
+    expect(prompt).toMatch(/No copies estos textos/i);
+  });
+
+  it("obliga a traducir la jerga y a permitir aritmética sobre los pesos", () => {
+    // Sin la traducción el informe es ilegible para quien escribe los posts.
+    expect(prompt).toMatch(/lenguaje llano/i);
+    // La regla 3 prohíbe inventar métricas de la cuenta, no comparar pesos
+    // públicos entre sí ("un reply vale 10 likes").
+    expect(prompt).toMatch(/aritmética sobre la tabla de pesos/i);
+  });
+
+  it("sigue prohibiendo reescribir posts fuera del bucket peor", () => {
+    expect(prompt).toMatch(/bucket \\?`?"peor"/);
+    expect(prompt).toMatch(/nunca se reescriben/i);
   });
 
   it("es determinista: misma entrada, misma salida", () => {

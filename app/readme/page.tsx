@@ -19,7 +19,7 @@ export default async function ReadmePage() {
           href="/"
           className="text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900 dark:hover:text-neutral-100"
         >
-          ← Volver a la auditoría
+          Volver
         </Link>
         <a
           href="https://github.com/xai-org/x-algorithm"
@@ -27,7 +27,7 @@ export default async function ReadmePage() {
           rel="noopener noreferrer"
           className="text-sm text-neutral-500 underline underline-offset-2 hover:text-neutral-900 dark:hover:text-neutral-100"
         >
-          Repo oficial de xAI ↗
+          Repo oficial de xAI
         </a>
       </div>
       <Markdown content={content} />

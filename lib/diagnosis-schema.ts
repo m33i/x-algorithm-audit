@@ -45,7 +45,11 @@ export const DiagnosisRequestSchema = z.object({
       }),
     )
     .max(30),
-  /** Muestra: 5 mejores, 5 peores, 5 medianos. */
+  /**
+   * Muestra de posts. "mejor" y "peor" son siempre los 5 extremos (son los que
+   * disparan las reescrituras); "mediano" es el relleno, hasta el tope de
+   * `MAX_SAMPLE_POSTS`.
+   */
   samplePosts: z
     .array(
       z.object({
@@ -55,7 +59,12 @@ export const DiagnosisRequestSchema = z.object({
         impressions: z.number(),
       }),
     )
-    .max(15),
+    .max(120),
+  /**
+   * true si `samplePosts` son TODOS los posts analizados. Si es false, es una
+   * muestra y de ella no se pueden inferir proporciones globales.
+   */
+  sampleIsComplete: z.boolean(),
 });
 
 export type DiagnosisRequest = z.infer<typeof DiagnosisRequestSchema>;

@@ -7,7 +7,9 @@ sin enviar el CSV a ningún servidor:
 
 - **AlgoScore** de cada post. Réplica del `positive_sum` del ranker real.
 - **AlgoScore+**. Score aproximado que añade proxies para las señales de alto
-  peso que el CSV no desglosa. Los proxies no son pesos del algoritmo.
+  peso que el CSV no desglosa. Los proxies no son pesos del algoritmo. Solo
+  aparece como columna si el CSV trae bookmarks; sin ellos sería idéntico al
+  AlgoScore.
 - **Cobertura observacional**. Fracción del espacio de pesos positivos medible
   desde el CSV. Los proxies NO la aumentan: estiman, no observan.
 - **Peso estimado por proxy**. Cuánto vale en el algoritmo la señal que se
@@ -328,7 +330,8 @@ El audit agrupa los posts por:
   insuficiente, por el mismo motivo.
 - Reply vs original.
 - Presencia de hashtags.
-- Franja horaria (madrugada, mañana, tarde, noche).
+- Franja horaria (madrugada, mañana, tarde, noche). Solo existe si el CSV trae
+  hora — ver la advertencia de abajo.
 - Dia de la semana.
 - Longitud (cuartiles Q1, medio, Q3).
 
@@ -339,6 +342,21 @@ una cohorte como significativa si p < 0.05.
 
 No esta en el codigo de X. Es estadistica sobre los posts del usuario, para
 distinguir patron real de ruido.
+
+#### Advertencia: el export nativo no trae hora del dia
+
+La columna `Date` del CSV de Account Analytics trae la fecha sin la hora, asi
+que todos los posts se parsean a medianoche. Cuando `findings.ts` detecta que
+no hay informacion horaria (`hasTimeOfDay`), suprime tres cosas en vez de
+fabricarlas:
+
+- La cohorte de franja horaria, que compararia cuatro grupos identicos.
+- El hallazgo de publicacion en rafaga, que sin horas contaria como
+  simultaneos todos los posts de un mismo dia.
+- Cualquier lectura de rendimiento por hora en la interfaz.
+
+No es que la cohorte "no salga": es una supresion deliberada. Enriquecer el
+CSV con marcas de tiempo desde la X API v2 reactiva las tres.
 
 #### Advertencia: la media no es detectable desde un CSV nativo
 
@@ -426,6 +444,10 @@ Es una estimacion, no una medicion: el decay se aplica sobre el slate del feed
 de cada espectador, no sobre el historico. Se usa solo para emitir un hallazgo
 de rafaga, no para cambiar el AlgoScore.
 
+Con el export nativo este hallazgo no se emite nunca, porque sin hora del dia
+todos los posts de una misma fecha parecerian publicados a la vez. Ver la
+advertencia sobre la columna `Date`.
+
 ### 5. Deteccion de alcance desperdiciado
 
 Identifica posts en el decil alto de impresiones (P90) que caen en el cuartil
@@ -435,19 +457,35 @@ dispersion, "decil alto" no significa nada.
 
 No esta en el codigo de X. Es un patron empirico sobre la cuenta del usuario.
 
-### 6. Muestra estratificada para el LLM
+### 6. Muestra de posts para el LLM
 
-Toma hasta 5 mejores, 5 peores y 5 medianos posts por AlgoScore, sin solapar
-ids, y los envuelve en un prompt autocontenido que se copia al
-portapapeles al llegar a esa seccion. El prompt incluye el system prompt de
-rol, el contexto del algoritmo (pesos reales citados) y el payload JSON con
-agregados, hallazgos, cohortes y muestra. El LLM devuelve un diagnostico
-estructurado en 10 secciones (resumen ejecutivo, priorizacion por impacto,
-analisis de cohortes significativas, reescrituras del bucket "peor", plan de
-accion, metricas de seguimiento, etc.).
+Los buckets `"mejor"` y `"peor"` son siempre los 5 posts de cada extremo por
+AlgoScore. Ese 5 no es estetico: son los que disparan las reescrituras del
+prompt, asi que subirlo sube el trabajo que se le pide al LLM. El bucket
+`"mediano"` se lleva el resto del presupuesto, hasta 120 posts o 60.000
+caracteres de texto, lo que se agote antes.
 
-El CSV no se envia a ningun servidor. Solo agregados y una muestra de hasta 15
-posts recortados a 2000 caracteres.
+Por debajo de ese tope la muestra son *todos* los posts de la cuenta. Por
+encima, el relleno se reparte de forma uniforme a lo largo del ranking de
+AlgoScore en vez de coger los primeros que caigan, para que cubra todo el
+rango. El payload incluye `sampleIsComplete` para que el LLM sepa si esta
+viendo la cuenta entera o una muestra: con una muestra tiene prohibido inferir
+proporciones globales ("el 40% de tus posts lleva enlace" seria el 40% de la
+muestra, no de la cuenta).
+
+El prompt es autocontenido: rol, contexto del algoritmo con los pesos reales
+citados, ejemplos del nivel de detalle esperado, estructura obligatoria de
+salida y el payload JSON con agregados, hallazgos, cohortes y muestra. El LLM
+devuelve un diagnostico estructurado en 10 secciones (resumen ejecutivo,
+priorizacion por impacto, cohortes significativas, patrones entre mejores y
+peores, reescrituras del bucket `"peor"`, limitaciones, plan de accion y
+metricas de seguimiento).
+
+El CSV no se envia a ningun servidor, y tampoco conviene adjuntarlo al chat
+junto al prompt: si el LLM ve las columnas crudas se pone a recalcular sin
+dividir entre impresiones y sin los pesos correctos, y sus numeros acaban
+mezclados con los del audit. La muestra va para leer textos, no para hacer
+aritmetica con ella.
 
 ---
 
