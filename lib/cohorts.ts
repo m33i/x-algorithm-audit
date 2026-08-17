@@ -176,15 +176,34 @@ export function compareGroups(
 }
 
 /**
- * Cohorte de links, calculada **solo sobre posts sin media**.
+ * Cohorte de enlaces acortados.
  *
- * X acorta a t.co tanto los enlaces del usuario como los adjuntos de media,
- * así que un post con imagen puede parecer un post con link. Excluir la media
- * de ambos grupos elimina el confound al precio de una muestra menor.
+ * ADVERTENCIA sobre lo que esta cohorte compara de verdad. X acorta a t.co
+ * tanto los enlaces externos como los adjuntos de media, y el CSV nativo de
+ * Account Analytics **no trae ninguna columna de media**: verificado contra
+ * un export real de 457 posts, cuyas cabeceras son Post id, Date, Post text,
+ * Post Link, Impressions, Likes, Engagements, Bookmarks, Shares, New follows,
+ * Replies, Reposts, Profile visits, Detail Expands, URL Clicks, Hashtag
+ * Clicks y Permalink Clicks. Tampoco aparece ya `pic.x.com` en el texto: en
+ * ese mismo export había 391 `t.co` y cero `pic.x.com`.
+ *
+ * Consecuencia: con un CSV nativo `hasMedia` es siempre false, así que el
+ * filtro de abajo no excluye nada y los dos grupos son "contiene un t.co"
+ * frente a "solo texto". El t.co puede ser un enlace externo o una imagen, y
+ * no hay forma de distinguirlos: se probó usar `urlClicks > 0` como
+ * discriminador sobre datos reales y no separa (71 de 370 posts con t.co
+ * tenían cero clics, indistinguibles de un enlace que nadie clicó).
+ *
+ * El filtro se mantiene porque sí funciona si alguien enriquece el CSV con
+ * una columna de media desde la API. Cuando no la hay, el hallazgo debe
+ * describirse como lo que es, y así lo hace `findings.ts`.
  */
 export function linkCohort(posts: ScoredPost[]): CohortComparison {
   const withoutMedia = posts.filter((p) => !p.features.hasMedia);
-  return compareBinary(withoutMedia, "link", ["con link", "sin link"], (p) =>
-    p.features.hasLink,
+  return compareBinary(
+    withoutMedia,
+    "link",
+    ["con enlace acortado", "solo texto"],
+    (p) => p.features.hasLink,
   );
 }

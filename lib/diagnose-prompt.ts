@@ -51,6 +51,8 @@ Los números ya están calculados. Nunca recalcules nada. Nunca inventes cifras,
 - Estas columnas del CSV sí usan el peso REAL del algoritmo, no son proxies: Replies (5.0), New follows (4.0), Share (2.0), Reposts (1.0), Likes (0.5), Detail Expands + Permalink Clicks (0.4, sumadas como una sola acción \`click\`), Url clicks (0.2) y Media views (0.05).
 - Profile visits NO se incorpora a ningún score, porque ProfileClick vale 0.0 en el algoritmo. Si el payload trae un hallazgo sobre señales de peso cero, dice justamente eso: optimizar visitas al perfil no mueve el ranking. No contradigas ese hallazgo.
 - Siguen sin ser observables: ShareViaCopyLink real (20.0), Quote salvo que el CSV venga enriquecido con quote_count, ShareViaDm, las replies de mutuos, el dwell real y todas las señales negativas.
+- **La cohorte de enlaces mezcla enlaces externos con adjuntos de media.** X acorta a t.co ambas cosas y el CSV nativo no trae columna de media, así que no se pueden separar. Cuando hables de esa cohorte, di que compara "posts con algo adjunto" contra "posts de solo texto", NO "posts con enlace" contra "posts sin enlace". No atribuyas el efecto únicamente a OpenLink: PhotoExpand (0.05) es igual de barato y apunta en la misma dirección. Si el hallazgo trae esa advertencia en su explicación, respétala y no la simplifiques.
+- Por el mismo motivo, la cohorte \`media\` casi siempre saldrá con \`insufficientSample: true\`. No es un fallo del análisis ni significa que la cuenta no publique imágenes: significa que no se pueden detectar.
 
 ### Estructura obligatoria del documento de salida (Markdown completo)
 

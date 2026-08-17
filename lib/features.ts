@@ -30,8 +30,14 @@ export function extractFeatures(row: PostRow): PostFeatures {
 
   return {
     hasLink: LINK_RE.test(text),
-    // mediaViews > 0 es la señal fuerte; el enlace pic.x.com la respalda
-    // cuando el post tuvo media pero ninguna visualización.
+    // OJO: con un CSV nativo de Account Analytics esto es SIEMPRE false.
+    // Verificado contra un export real: no existe columna de media (las 17
+    // cabeceras no incluyen ninguna), y X ya no emite `pic.x.com` en el
+    // texto — 391 `t.co` y cero `pic.x.com` en 457 posts.
+    // Solo da true si enriqueces el CSV con una columna de media desde la
+    // API. No se puede inferir de otra forma: se probó `urlClicks > 0` como
+    // discriminador y no separa (un enlace que nadie clicó es idéntico a
+    // una imagen).
     hasMedia:
       (row.mediaViews !== null && row.mediaViews > 0) ||
       MEDIA_LINK_RE.test(text),

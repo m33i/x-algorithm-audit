@@ -310,9 +310,11 @@ Referencia a los pesos reales: `param.rs:308-310`.
 
 El audit agrupa los posts por:
 
-- Presencia de enlace (excluyendo posts con media para evitar el confound
-  t.co).
-- Presencia de media.
+- Presencia de enlace acortado. **Con un CSV nativo esto compara "posts con
+  algo adjunto" contra "posts de solo texto", no "con enlace" contra "sin
+  enlace"** — ver la advertencia de abajo.
+- Presencia de media. Con un CSV nativo esta cohorte siempre sale con muestra
+  insuficiente, por el mismo motivo.
 - Reply vs original.
 - Presencia de hashtags.
 - Franja horaria (madrugada, mañana, tarde, noche).
@@ -326,6 +328,35 @@ una cohorte como significativa si p < 0.05.
 
 No esta en el codigo de X. Es estadistica sobre los posts del usuario, para
 distinguir patron real de ruido.
+
+#### Advertencia: la media no es detectable desde un CSV nativo
+
+Verificado contra un export real de 457 posts. Sus 17 cabeceras son: `Post
+id`, `Date`, `Post text`, `Post Link`, `Impressions`, `Likes`, `Engagements`,
+`Bookmarks`, `Shares`, `New follows`, `Replies`, `Reposts`, `Profile visits`,
+`Detail Expands`, `URL Clicks`, `Hashtag Clicks`, `Permalink Clicks`.
+
+**No hay ninguna columna de media.** Y X ya no emite `pic.x.com` en el texto:
+en ese mismo export habia 391 `t.co` y cero `pic.x.com`. Como X acorta a
+`t.co` tanto los enlaces externos como los adjuntos, un post con imagen es
+indistinguible de un post con enlace.
+
+Se probo usar `URL Clicks > 0` como discriminador y no separa: de 370 posts
+con `t.co`, 71 tenian cero clics — indistinguibles de un enlace que nadie
+clico. Ademas 7 posts sin `t.co` registraban clics.
+
+Consecuencias, que la herramienta declara en vez de disimular:
+
+- `hasMedia` es siempre `false` con un CSV nativo.
+- La cohorte `media` sale siempre con muestra insuficiente. No significa que
+  la cuenta no publique imagenes: significa que no se pueden detectar.
+- El filtro de `linkCohort` que excluye posts con media no excluye nada, asi
+  que el hallazgo describe explicitamente que compara "algo adjunto" contra
+  "solo texto", y atribuye el efecto tanto a `open_link` (0.2) como a
+  `photo_expand` (0.05), que apuntan en la misma direccion.
+
+Enriquecer el CSV con una columna de media desde la X API reactiva el filtro
+y separa los dos efectos.
 
 ### 4. Estimacion del multiplicador de diversidad perdido por rafaga
 

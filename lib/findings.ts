@@ -154,23 +154,28 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     const [worse, better] = link.groups;
     findings.push({
       id: "link-tax",
-      title: "Tus posts con enlace rinden peor",
+      title: "Tus posts con enlace acortado rinden peor que los de solo texto",
       severity: "alta",
       evidence:
         `${worse.label}: mediana de AlgoScore ${worse.medianScore.toFixed(4)} ` +
         `(${worse.medianImpressions.toFixed(0)} impresiones, n=${worse.n}). ` +
         `${better.label}: ${better.medianScore.toFixed(4)} ` +
         `(${better.medianImpressions.toFixed(0)} impresiones, n=${better.n}). ` +
-        `Diferencia de ${ratio(better.medianScore, worse.medianScore)}, p=${link.pScore!.toFixed(4)}. ` +
-        `Calculado solo sobre posts sin media, para evitar el confound de los enlaces t.co de adjuntos.`,
+        `Diferencia de ${ratio(better.medianScore, worse.medianScore)}, p=${link.pScore!.toFixed(4)}.`,
       explanation:
-        `No existe ninguna penalización explícita a URLs en el código de X. El efecto es de ` +
-        `composición: un post con enlace canaliza la atención hacia open_link, que pesa ` +
-        `${POSITIVE_WEIGHTS.openLink}, la acción más barata que no está a cero, en vez de hacia ` +
-        `reply (${POSITIVE_WEIGHTS.reply}) o share_via_copy_link (${POSITIVE_WEIGHTS.shareViaCopyLink}).`,
+        `Importante para interpretarlo bien: X acorta a t.co tanto los enlaces externos como ` +
+        `los adjuntos de media, y el CSV de Analytics no trae ninguna columna de media, así que ` +
+        `no se pueden separar. El grupo "con enlace acortado" mezcla ambos. Lo que mide este ` +
+        `hallazgo es "posts con algo adjunto" frente a "posts de solo texto". ` +
+        `El mecanismo apunta igual en los dos casos: no hay penalización explícita a URLs en el ` +
+        `código de X, pero un adjunto canaliza la atención hacia acciones baratas — open_link ` +
+        `pesa ${POSITIVE_WEIGHTS.openLink} y photo_expand ${POSITIVE_WEIGHTS.photoExpand} — en ` +
+        `vez de hacia reply (${POSITIVE_WEIGHTS.reply}) o share_via_copy_link ` +
+        `(${POSITIVE_WEIGHTS.shareViaCopyLink}).`,
       action:
-        "Pon el contenido en el propio post y deja el enlace para una reply, o reescribe el post " +
-        "para que invite a responder en vez de a hacer clic.",
+        "Prueba a poner el contenido en el propio post y dejar el enlace para una reply. Si " +
+        "quieres separar el efecto del enlace del de la imagen, enriquece el CSV con una " +
+        "columna de media desde la X API: sin ella los dos van juntos.",
       codeRef: "home-mixer/params/param.rs:336",
     });
   }

@@ -56,6 +56,17 @@ export function HowItWorks() {
           con la API), los DMs ni las señales negativas.
         </p>
         <p className="mt-3">
+          Hay una limitación más, y conviene tenerla presente al leer el
+          hallazgo de enlaces: <strong>tampoco se puede detectar si un post
+          lleva imagen o vídeo</strong>. El CSV no trae ninguna columna de
+          media, y X acorta a <code>t.co</code> tanto los enlaces externos
+          como los adjuntos, sin nada que los distinga. Por eso la cohorte de
+          enlaces compara en realidad &ldquo;posts con algo adjunto&rdquo;
+          contra &ldquo;posts de solo texto&rdquo;, y la cohorte de media
+          casi siempre sale con muestra insuficiente. Enriquecer el CSV desde
+          la API es la única forma de separarlos.
+        </p>
+        <p className="mt-3">
           Hay dos formas de reducir esa parte ciega, y conviene no
           confundirlas:
         </p>
