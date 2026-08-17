@@ -15,7 +15,7 @@ sin enviar el CSV a ningún servidor:
 - **Hallazgos priorizados**. Los de cohorte llevan test no paramétrico
   (Mann-Whitney U, p < 0.05 corregida por comparaciones múltiples, mínimo 8
   posts por grupo); el resto son agregados con suelo de muestra, sin test.
-- **Prompt auto-copiado** listo para pegar en un LLM y obtener un diagnóstico
+- **Prompt copiable** listo para pegar en un LLM y obtener un diagnóstico
   estructurado en 10 secciones.
 
 El cálculo se hace en el navegador. Ningún endpoint recibe el CSV.
@@ -438,7 +438,7 @@ No esta en el codigo de X. Es un patron empirico sobre la cuenta del usuario.
 ### 6. Muestra estratificada para el LLM
 
 Toma hasta 5 mejores, 5 peores y 5 medianos posts por AlgoScore, sin solapar
-ids, y los envuelve en un prompt autocontenido que se auto-copia al
+ids, y los envuelve en un prompt autocontenido que se copia al
 portapapeles al llegar a esa seccion. El prompt incluye el system prompt de
 rol, el contexto del algoritmo (pesos reales citados) y el payload JSON con
 agregados, hallazgos, cohortes y muestra. El LLM devuelve un diagnostico

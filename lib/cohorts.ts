@@ -79,13 +79,10 @@ function summarize(label: string, posts: ScoredPost[]): CohortGroup {
 /**
  * Contrasta dos conjuntos aplicando los umbrales.
  *
- * `comparisons` es el número de pares que se podrían haber contrastado dentro
- * de esta cohorte. Con dos grupos vale 1 y no corrige nada. Con más, hay que
- * corregir: elegir el mejor contra el peor y reportar la p del par como si
- * hubiera sido la única comparación planeada infla los falsos positivos.
- * Medido por simulación bajo la hipótesis nula: 11.7% con 3 grupos, 15.3% con
- * 4 y 29.8% con 7, frente al 5% nominal. Se aplica Bonferroni sobre los
- * k(k-1)/2 pares, que es conservador pero defendible y fácil de explicar.
+ * `comparisons` son los pares que se podrían haber contrastado. Elegir el
+ * mejor contra el peor y reportar la p cruda infla los falsos positivos:
+ * medido bajo la nula, 11.7% con 3 grupos y 29.8% con 7, frente al 5%
+ * nominal. Se corrige con Bonferroni sobre los k(k-1)/2 pares.
  */
 function contrast(
   id: string,
@@ -204,25 +201,11 @@ export function compareGroups(
 /**
  * Cohorte de enlaces acortados.
  *
- * ADVERTENCIA sobre lo que esta cohorte compara de verdad. X acorta a t.co
- * tanto los enlaces externos como los adjuntos de media, y el CSV nativo de
- * Account Analytics **no trae ninguna columna de media**: verificado contra
- * un export real de 457 posts, cuyas cabeceras son Post id, Date, Post text,
- * Post Link, Impressions, Likes, Engagements, Bookmarks, Shares, New follows,
- * Replies, Reposts, Profile visits, Detail Expands, URL Clicks, Hashtag
- * Clicks y Permalink Clicks. Tampoco aparece ya `pic.x.com` en el texto: en
- * ese mismo export había 391 `t.co` y cero `pic.x.com`.
- *
- * Consecuencia: con un CSV nativo `hasMedia` es siempre false, así que el
- * filtro de abajo no excluye nada y los dos grupos son "contiene un t.co"
- * frente a "solo texto". El t.co puede ser un enlace externo o una imagen, y
- * no hay forma de distinguirlos: se probó usar `urlClicks > 0` como
- * discriminador sobre datos reales y no separa (71 de 370 posts con t.co
- * tenían cero clics, indistinguibles de un enlace que nadie clicó).
- *
- * El filtro se mantiene porque sí funciona si alguien enriquece el CSV con
- * una columna de media desde la API. Cuando no la hay, el hallazgo debe
- * describirse como lo que es, y así lo hace `findings.ts`.
+ * Ojo con lo que compara de verdad: X acorta a t.co tanto los enlaces
+ * externos como los adjuntos, y el CSV nativo no trae columna de media, así
+ * que `hasMedia` es siempre false y el filtro no excluye nada. Los grupos
+ * acaban siendo "contiene un t.co" frente a "solo texto". El filtro se
+ * mantiene porque sí funciona con un CSV enriquecido desde la API.
  */
 export function linkCohort(posts: ScoredPost[]): CohortComparison {
   const withoutMedia = posts.filter((p) => !p.features.hasMedia);

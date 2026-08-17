@@ -87,12 +87,12 @@ export function HowItWorks() {
           <code>is_retweet</code>, <code>is_quote</code> e{" "}
           <code>is_reply</code>. Ninguno de los cuatro sale del texto: salen
           de si existen los identificadores correspondientes. Phoenix no
-          adivina si hay una imagen — se lo dicen.
+          adivina si hay una imagen: se lo dicen.
         </p>
         <p className="mt-3">
           El <code>t.co</code> es lo que queda cuando el post se{" "}
-          <em>renderiza a texto</em>. La información estructurada —qué entidad
-          era ese enlace acortado— se pierde en esa proyección, y el CSV de
+          <em>renderiza a texto</em>. La información estructurada (qué entidad
+          era ese enlace acortado) se pierde en esa proyección, y el CSV de
           Analytics solo nos entrega la proyección. No hay forma de
           reconstruirla desde fuera: se probó usar los clics de URL como
           discriminador y no separa, porque un enlace que nadie clicó es
@@ -120,7 +120,7 @@ export function HowItWorks() {
           <li>
             <strong>Bookmarks</strong> <em>no</em> aumenta la cobertura: la
             estima. El bookmark no aparece en el struct de pesos del
-            algoritmo, así que no tiene peso — ojo, eso es distinto de valer
+            algoritmo, así que no tiene peso. Ojo, eso es distinto de valer
             0.0 como <code>profile_click</code>, que sí está en el struct
             puesto a cero. Esta herramienta lo usa como sustituto de
             share_via_copy_link con un peso de 6.0 <strong>inventado por

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Dropzone } from "@/components/Dropzone";
 import { HowItWorks } from "@/components/HowItWorks";
+import { XLogo } from "@/components/XLogo";
 import { Report } from "@/components/Report";
 import { parseAnalyticsCsv, CsvParseError } from "@/lib/csv";
 import { analyze, type AnalysisReport } from "@/lib/findings";
@@ -47,10 +48,13 @@ export default function Home() {
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col items-center px-6 py-20">
-      <h1 className="text-3xl font-bold tracking-tight">x-algorithm-audit</h1>
+      <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+        <span className="sr-only">X Algorithm Audit</span>
+        <XLogo className="h-[0.78em] w-[0.78em]" />
+        <span aria-hidden="true">Algorithm Audit</span>
+      </h1>
       <p className="mt-3 max-w-lg text-center text-neutral-600 dark:text-neutral-400">
-        Puntúa tus posts con los pesos de ranking que xAI publicó el 13 de
-        agosto de 2026.
+        Puntúa tus posts con los pesos de ranking publicados por xAI.
       </p>
 
       <div className="mt-10 flex justify-center">

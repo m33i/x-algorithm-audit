@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisReport } from "@/lib/findings";
 import type { ScoredPost } from "@/lib/cohorts";
 import { buildDiagnosisPayload, buildDiagnosisPrompt } from "@/lib/diagnose-prompt";
+
+const COPIED_FEEDBACK_MS = 2000;
+
+type CopyState = "idle" | "copied" | "failed";
 
 export function Diagnosis({
   report,
@@ -12,46 +16,46 @@ export function Diagnosis({
   report: AnalysisReport;
   posts: ScoredPost[];
 }) {
-  const promptText = buildDiagnosisPrompt(buildDiagnosisPayload(report, posts));
-  const [copied, setCopied] = useState<boolean | null>(null);
-  const autoCopiedRef = useRef(false);
+  const promptText = useMemo(
+    () => buildDiagnosisPrompt(buildDiagnosisPayload(report, posts)),
+    [report, posts],
+  );
 
-  // Auto-copia al portapapeles la primera vez que el componente se monta,
-  // para que el usuario ya tenga el prompt listo al llegar a esta sección.
-  // Si falla (permisos del navegador, contexto sin Clipboard API), dejamos
-  // el botón manual como fallback y no mostramos "Copiado".
-  useEffect(() => {
-    if (autoCopiedRef.current) return;
-    autoCopiedRef.current = true;
+  const [state, setState] = useState<CopyState>("idle");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const text = promptText;
-    const tryAuto = async () => {
+  // El acuse vuelve a "idle" solo: si se quedara fijo, el botón parecería
+  // muerto al pulsarlo de nuevo.
+  const flag = useCallback((next: CopyState) => {
+    setState(next);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (next === "copied") {
+      timerRef.current = setTimeout(() => setState("idle"), COPIED_FEEDBACK_MS);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const copy = useCallback(
+    async (text: string): Promise<boolean> => {
       try {
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(text);
-          setCopied(true);
         } else {
           fallbackCopy(text);
-          setCopied(true);
         }
+        return true;
       } catch {
-        setCopied(false);
+        return false;
       }
-    };
-    void tryAuto();
-  }, [promptText]);
+    },
+    [],
+  );
 
   async function copyPrompt() {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(promptText);
-      } else {
-        fallbackCopy(promptText);
-      }
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
+    flag((await copy(promptText)) ? "copied" : "failed");
   }
 
   return (
@@ -60,30 +64,27 @@ export function Diagnosis({
         <div>
           <h2 className="font-semibold">Prompt para tu LLM</h2>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            Lo hemos copiado a tu portapapeles. Pégalo en el chat de Gemini,
-            Claude, GPT o el LLM que prefieras. Devuelve un diagnóstico con 10
-            secciones: resumen ejecutivo, priorización por impacto, análisis de
-            cohortes, reescrituras del bucket &ldquo;peor&rdquo;, plan de
-            acción y métricas de seguimiento. El CSV no se envía: solo
-            agregados y una muestra de 15 posts.
+            Cópialo y pégalo en el chat de Gemini, Claude, GPT o el LLM que
+            prefieras. Devuelve un diagnóstico con 10 secciones: resumen
+            ejecutivo, priorización por impacto, análisis de cohortes,
+            reescrituras del bucket &ldquo;peor&rdquo;, plan de acción y
+            métricas de seguimiento. El CSV no se envía: solo agregados y una
+            muestra de 15 posts.
           </p>
         </div>
         <button
           onClick={copyPrompt}
-          className="shrink-0 rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
+          aria-live="polite"
+          className="shrink-0 rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-colors dark:bg-neutral-100 dark:text-neutral-900"
         >
-          {copied === null
-            ? "Copiar al portapapeles"
-            : copied
-              ? "Copiado"
-              : "Copiar al portapapeles"}
+          {state === "copied" ? "¡Copiado!" : "Copiar"}
         </button>
       </div>
 
-      {copied === false && (
+      {state === "failed" && (
         <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-          La auto-copia no pudo completarse en este navegador. Usa el botón de
-          arriba o selecciona el texto del cuadro manualmente.
+          El navegador bloqueó el acceso al portapapeles. Selecciona el texto
+          del cuadro de abajo y cópialo a mano.
         </p>
       )}
 
@@ -97,7 +98,7 @@ export function Diagnosis({
   );
 }
 
-/** Fallback para contextos sin Clipboard API (HTTP antiguo, iframes). */
+/** Para contextos sin Clipboard API. */
 function fallbackCopy(text: string) {
   const ta = document.createElement("textarea");
   ta.value = text;

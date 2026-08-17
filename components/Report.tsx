@@ -3,6 +3,7 @@
 import { FindingCard } from "./FindingCard";
 import { PostTable } from "./PostTable";
 import { Diagnosis } from "./Diagnosis";
+import { XLogo } from "./XLogo";
 import { Visualizations } from "./Visualizations";
 import type { AnalysisReport } from "@/lib/findings";
 
@@ -19,7 +20,11 @@ export function Report({ report, skippedRows, onReset }: Props) {
     <div className="space-y-10">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Auditoría</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <span className="sr-only">X Algorithm Audit</span>
+            <XLogo className="h-[0.78em] w-[0.78em]" />
+            <span aria-hidden="true">Algorithm Audit</span>
+          </h1>
           <p className="mt-1 text-sm text-neutral-500">
             {report.postCount} posts analizados
             {skippedRows > 0 && ` · ${skippedRows} filas descartadas por falta de datos`}

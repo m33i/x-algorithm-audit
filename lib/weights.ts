@@ -81,21 +81,14 @@ export const NEGATIVE_WEIGHTS = {
  * observa del algoritmo, y un peso inventado no observa nada. Ver la nota de
  * `proxiedWeight` en scoring.ts.
  *
- * - bookmarks: NO aparece en el struct `ScoringWeights`
- *   (ranking_scorer.rs:18-58), así que no tiene peso en el algoritmo. Ojo a
- *   la diferencia: `profile_click` sí está en el struct, puesto a 0.0; el
- *   bookmark simplemente no está. El CSV de Analytics sí lo expone, y lo
- *   usamos como proxy de share_via_copy_link (peso real 20.0, inobservable),
- *   porque guardar un post para leerlo o compartirlo después es una
- *   intención cercana a copiar el enlace.
+ * - bookmarks: no aparece en el struct `ScoringWeights`
+ *   (ranking_scorer.rs:18-58), así que no tiene peso. Distinto de
+ *   `profile_click`, que sí está en el struct puesto a 0.0. El CSV lo expone
+ *   y lo usamos como proxy de share_via_copy_link (20.0, inobservable).
  *
- *   El 6.0 es un JUICIO, no una medición ni una constante derivada de
- *   ninguna fuente. Nadie ha medido qué fracción de share_via_copy_link
- *   captura un bookmark. Se eligió por debajo del 20.0 que sustituye para
- *   no sobreponderar una hipótesis, y por encima de los pesos de acciones
- *   baratas (click 0.4) para reflejar que guardar señala intención alta.
- *   Cualquiera puede discutirlo; lo que no se puede es presentarlo como
- *   un dato del algoritmo.
+ *   El 6.0 es un juicio, no una medición: nadie ha medido qué fracción de
+ *   share_via_copy_link captura un bookmark. Por debajo del 20.0 que
+ *   sustituye, por encima de las acciones baratas (click 0.4).
  *
  * Los proxies se mantienen separados del score real (algoScore) y van en un
  * score aparte (approxScore). Las comparaciones estadísticas de cohortes

@@ -21,15 +21,7 @@ function opacityFor(value: number, max: number): number {
   return Math.max(0.08, Math.min(1, value / max));
 }
 
-/**
- * Mínimo de posts por celda para pintar su mediana de score.
- *
- * Una celda con un solo post mostraría el score de ese post como si fuera una
- * mediana: ruido presentado como señal, justo lo que los umbrales del resto
- * del proyecto existen para evitar. No es el n>=8 de las cohortes porque una
- * celda no sostiene una afirmación estadística, solo orienta la vista; pero
- * pintar n=1 sería mentir con color.
- */
+/** Mínimo de posts por celda para pintar su mediana: con n=1 sería ruido. */
 const MIN_CELL_POSTS = 3;
 
 const DAY_LABELS = [
@@ -154,9 +146,7 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
     const points = posts.map((p) => {
       const x = ((Math.log10(p.row.impressions) - logMin) / (logMax - logMin)) * 100;
       const y = 100 - ((p.algoScore - scoreMin) / (scoreMax - scoreMin)) * 100;
-      // No se reimplementa el criterio: se consume el conjunto que
-      // `findings.ts` ya decidió, con sus guardas de dispersión y mínimo de
-      // posts. Si el hallazgo no se emitió, no se pinta nada de rojo.
+      // Se consume el conjunto que decidió `findings.ts`, con sus guardas.
       const wasted = wastedIds.has(p.row.id);
       return { x, y, wasted, id: p.row.id, imp: p.row.impressions, score: p.algoScore };
     });
@@ -312,10 +302,8 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
             <p className="mt-1 text-xs text-neutral-500">
               {posts.length} posts. Línea roja = mediana.
             </p>
-            {/* Sin separación entre barras: es la convención del histograma
-                (los bins son contiguos) y además hace que el porcentaje de la
-                línea de mediana caiga exactamente sobre su bin. Con `gap-px`
-                los 19 huecos desplazaban la línea varios puntos. */}
+            {/* Barras contiguas: convención del histograma, y hace que la
+                línea de mediana caiga exacta sobre su bin. */}
             <div className="relative mt-4 flex h-40 items-end">
               {hist.counts.map((c, i) => (
                 <div
@@ -383,10 +371,7 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
                 <div
                   key={p.id}
                   title={`Impresiones: ${p.imp.toLocaleString("es")}\nAlgoScore: ${p.score.toFixed(4)}`}
-                  // Semitransparente: con cientos de posts los puntos se
-                  // solapan, y la opacidad acumulada hace legible la densidad
-                  // en vez de una mancha uniforme. Los de alcance
-                  // desperdiciado van opacos para que no se pierdan.
+                  // Semitransparente para que el solapamiento muestre densidad.
                   className={`absolute h-1.5 w-1.5 rounded-full ${
                     p.wasted
                       ? "bg-rose-500"

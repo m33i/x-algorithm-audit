@@ -11,15 +11,10 @@ import type { PostRow } from "./types";
  *
  *   AlgoScore = Σ ( peso_i × acción_i / impresiones )
  *
- * Alcance de la equivalencia, dicho con precisión. El score real se normaliza
- * con una transformación afín (`ranking_scorer.rs:555-558`) que preserva el
- * orden, así que ESA transformación no altera el ranking. Pero el AlgoScore no
- * es monótonamente equivalente al score del ranker: cubre ~30% del espacio de
- * pesos positivos y 0% de los negativos, sustituye las probabilidades
- * predichas por el modelo por tasas empíricas a posteriori, y no aplica los
- * multiplicadores de diversidad ni de OON. La equivalencia solo vale para la
- * parte observable del positive_sum, y bajo el supuesto de que la tasa
- * empírica aproxima la probabilidad predicha.
+ * No es monótonamente equivalente al score del ranker: cubre ~30% de los
+ * pesos positivos y 0% de los negativos, usa tasas empíricas en vez de las
+ * probabilidades que predice el modelo, y no aplica los multiplicadores de
+ * diversidad ni de OON.
  *
  * Además del AlgoScore "real" (solo pesos transcritos del código), se calcula
  * un `approxScore` que añade los pesos proxy de `PROXY_WEIGHTS` para las
@@ -129,14 +124,9 @@ export interface ScoreBreakdown {
    * Peso REAL del algoritmo que los proxies presentes intentan estimar.
    * Para el proxy de bookmarks son los 20.0 de share_via_copy_link.
    *
-   * Deliberadamente NO es un porcentaje de cobertura. Sumar el peso proxy
-   * (6.0) al numerador de `coverage` mezclaría unidades: el 6.0 no es un
-   * componente de los 43.32 del denominador, así que el cociente no sería
-   * fracción de nada real e inflaría la cobertura con un número inventado.
-   *
-   * Este campo dice qué señal se está intentando estimar y cuánto vale esa
-   * señal en el algoritmo. Cuánto de ella captura el proxy es desconocido,
-   * y por eso no se convierte en porcentaje.
+   * NO es un porcentaje de cobertura: sumar el peso proxy (6.0) al numerador
+   * mezclaría unidades, porque no es un componente de los 43.32 del
+   * denominador. Cuánto captura el proxy es desconocido.
    */
   proxiedWeight: number;
 }
@@ -151,9 +141,7 @@ export function scorePost(row: PostRow): ScoreBreakdown {
   let observedWeight = 0;
 
   for (const { action, columns } of OBSERVABLE) {
-    // ¿Hay alguna columna presente (no null) para esta acción?
-    // Si todas son null, la acción no es observable en este post y su peso
-    // no cuenta para la cobertura.
+    // Si todas las columnas son null, la acción no es observable aquí.
     const present = columns.some((col) => row[col] !== null);
     if (!present) continue;
 

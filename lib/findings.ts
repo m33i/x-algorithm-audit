@@ -50,26 +50,14 @@ export interface AnalysisReport {
   findings: Finding[];
   burstPenalty: { burstCount: number; estimatedLoss: number };
   /**
-   * Si el CSV trae hora del día o solo fecha.
-   *
-   * El export de Account Analytics trae una columna `Date` SIN hora, así que
-   * todos los posts se parsean a medianoche. Verificado sobre un export real
-   * de 457 posts: una única hora distinta en todo el fichero.
-   *
-   * Cuando es false, todo lo que dependa de la hora carece de sentido y se
-   * suprime: el hallazgo de ráfagas (sin hora, dos posts del mismo día tienen
-   * marca de tiempo idéntica y parecen simultáneos), la cohorte de franja
-   * horaria y el eje de horas del heatmap.
+   * El export nativo trae `Date` sin hora, así que todo cae a medianoche.
+   * Cuando es false se suprimen el hallazgo de ráfagas, la cohorte horaria y
+   * el eje de horas del heatmap.
    */
   hasTimeOfDay: boolean;
   /**
-   * Ids de los posts que el hallazgo `wasted-reach` señala, o array vacío si
-   * el hallazgo no se emitió.
-   *
-   * Se expone para que la UI no reimplemente el criterio. La versión anterior
-   * lo duplicaba en el scatter sin las guardas de dispersión ni el mínimo de
-   * 2 posts, así que el gráfico podía pintar de rojo lo que la lógica de
-   * hallazgos había decidido que no se sostenía.
+   * Ids que señala `wasted-reach`, o vacío si no se emitió. Se expone para
+   * que la UI no reimplemente el criterio sin sus guardas.
    */
   wastedPostIds: string[];
 }
@@ -184,12 +172,8 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const burstPenalty = analyzeBursts(posts);
   const findings: Finding[] = [];
 
-  // 1. Efecto del enlace acortado.
-  //
-  // OJO: `groups` viene ordenado por mediana ascendente, NO por etiqueta. Hay
-  // que mirar cuál de los dos grupos es el de enlaces antes de narrar nada.
-  // La versión anterior daba por hecho que el enlace era siempre el peor y
-  // sobre datos reales afirmaba lo contrario de su propia evidencia.
+  // `groups` viene ordenado por mediana, no por etiqueta: hay que mirar cuál
+  // de los dos es el de enlaces antes de narrar la dirección.
   const link = cohorts.find((c) => c.id === "link");
   if (link && link.significant && link.groups.length === 2) {
     const [lower, higher] = link.groups;
@@ -221,8 +205,8 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         ? `${confound} ` +
           `El mecanismo apunta igual en los dos casos: no hay penalización explícita a URLs en ` +
           `el código de X, pero un adjunto canaliza la atención hacia acciones baratas ` +
-          `— open_link pesa ${POSITIVE_WEIGHTS.openLink} y photo_expand ` +
-          `${POSITIVE_WEIGHTS.photoExpand} — en vez de hacia reply (${POSITIVE_WEIGHTS.reply}) ` +
+          `(open_link pesa ${POSITIVE_WEIGHTS.openLink} y photo_expand ` +
+          `${POSITIVE_WEIGHTS.photoExpand}) en vez de hacia reply (${POSITIVE_WEIGHTS.reply}) ` +
           `o share_via_copy_link (${POSITIVE_WEIGHTS.shareViaCopyLink}).`
         : `${confound} ` +
           `En tu cuenta el patrón va en dirección contraria al consejo habitual: los posts con ` +
@@ -269,12 +253,8 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     });
   }
 
-  // 3. Canibalización por ráfaga.
-  // Requiere hora del día: sin ella, dos posts del mismo día tienen marca de
-  // tiempo idéntica y TODOS parecerían publicados a la vez. Sobre un export
-  // real de 457 posts eso producía 329 "ráfagas" inexistentes.
-  // El suelo de muestra y la severidad relativa evitan que 5 posts seguidos
-  // en un fichero de 5 produzcan un hallazgo de severidad alta.
+  // Requiere hora del día: sin ella, los posts del mismo día tienen marca de
+  // tiempo idéntica y todos parecerían publicados a la vez.
   const burstShare =
     posts.length > 0 ? burstPenalty.burstCount / posts.length : 0;
   if (
@@ -285,9 +265,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     findings.push({
       id: "burst-cannibalization",
       title: "Publicas en ráfaga y te canibalizas el alcance",
-      // Relativa al volumen, no a una suma absoluta: `estimatedLoss` crece
-      // con el número de posts y en una cuenta grande superaría cualquier
-      // umbral fijo por pura acumulación.
+      // Relativa al volumen: `estimatedLoss` crece con el número de posts.
       severity: burstShare > 0.25 ? "alta" : "media",
       evidence:
         `${burstPenalty.burstCount} de ${posts.length} posts (${pct(burstShare)}) se ` +
