@@ -63,8 +63,48 @@ export function HowItWorks() {
           como los adjuntos, sin nada que los distinga. Por eso la cohorte de
           enlaces compara en realidad &ldquo;posts con algo adjunto&rdquo;
           contra &ldquo;posts de solo texto&rdquo;, y la cohorte de media
-          casi siempre sale con muestra insuficiente. Enriquecer el CSV desde
-          la API es la única forma de separarlos.
+          casi siempre sale con muestra insuficiente.
+        </p>
+      </div>
+
+      <div>
+        <h2 className="mb-2 font-semibold text-neutral-900 dark:text-neutral-100">
+          Por qué el algoritmo sí puede distinguirlo y nosotros no
+        </h2>
+        <p>
+          Es una asimetría de acceso, no de ingenio, y se ve en el código
+          publicado. Cada post que entra al ranker lleva un campo booleano
+          explícito, <code>has_media</code>{" "}
+          (<code>home-mixer/models/candidate.rs:50</code>), que no se infiere
+          del texto: lo rellena un servicio dedicado consultando la propia
+          base de datos de media de X{" "}
+          (<code>candidate_hydrators/media_info_hydrator.rs</code>).
+        </p>
+        <p className="mt-3">
+          Ese booleano llega al modelo tal cual, dentro de{" "}
+          <code>TweetBoolFeatures</code>{" "}
+          (<code>candidate.rs:195-200</code>), junto a{" "}
+          <code>is_retweet</code>, <code>is_quote</code> e{" "}
+          <code>is_reply</code>. Ninguno de los cuatro sale del texto: salen
+          de si existen los identificadores correspondientes. Phoenix no
+          adivina si hay una imagen — se lo dicen.
+        </p>
+        <p className="mt-3">
+          El <code>t.co</code> es lo que queda cuando el post se{" "}
+          <em>renderiza a texto</em>. La información estructurada —qué entidad
+          era ese enlace acortado— se pierde en esa proyección, y el CSV de
+          Analytics solo nos entrega la proyección. No hay forma de
+          reconstruirla desde fuera: se probó usar los clics de URL como
+          discriminador y no separa, porque un enlace que nadie clicó es
+          indistinguible de una imagen.
+        </p>
+        <p className="mt-3">
+          Lo resolvería la X API v2 con{" "}
+          <code>expansions=attachments.media_keys</code>, que devuelve las
+          entidades separadas: exactamente el mismo dato que el servicio
+          interno le pasa al ranker. Esta herramienta no lo usa porque no
+          requiere credenciales de API, y preferimos declarar el límite antes
+          que estimarlo con una heurística que no se sostiene.
         </p>
         <p className="mt-3">
           Hay dos formas de reducir esa parte ciega, y conviene no

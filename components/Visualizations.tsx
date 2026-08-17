@@ -21,6 +21,38 @@ function opacityFor(value: number, max: number): number {
   return Math.max(0.08, Math.min(1, value / max));
 }
 
+/**
+ * Mínimo de posts por celda para pintar su mediana de score.
+ *
+ * Una celda con un solo post mostraría el score de ese post como si fuera una
+ * mediana: ruido presentado como señal, justo lo que los umbrales del resto
+ * del proyecto existen para evitar. No es el n>=8 de las cohortes porque una
+ * celda no sostiene una afirmación estadística, solo orienta la vista; pero
+ * pintar n=1 sería mentir con color.
+ */
+const MIN_CELL_POSTS = 3;
+
+const DAY_LABELS = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+];
+
+/** Etiquetas legibles para los ids internos de cohorte. */
+const COHORT_LABELS: Record<string, string> = {
+  link: "Enlace acortado vs solo texto",
+  media: "Con media vs sin media",
+  reply: "Replies vs originales",
+  hashtag: "Con hashtag vs sin hashtag",
+  hora: "Franja horaria",
+  dia: "Día de la semana",
+  longitud: "Longitud del post",
+};
+
 export function Visualizations({ report }: { report: AnalysisReport }) {
   const posts = report.posts;
   const [heatMode, setHeatMode] = useState<"score" | "volume">("score");
@@ -51,7 +83,9 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
     for (let d = 0; d < 7; d++) {
       for (let h = 0; h < 24; h++) {
         const b = buckets[d][h];
-        if (b.score.length > 0) {
+        // Solo se calcula mediana con muestra suficiente. Con menos, la celda
+        // existe (tiene count) pero no tiene score que pintar.
+        if (b.score.length >= MIN_CELL_POSTS) {
           const m = median(b.score);
           grid[d][h].score = m;
           if (m > maxScore) maxScore = m;
@@ -62,6 +96,19 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
     }
 
     return { grid, maxScore, maxCount };
+  }, [posts]);
+
+  // --- Fallback: agregado por día, cuando el CSV no trae hora ---
+  const byDay = useMemo(() => {
+    const buckets: number[][] = Array.from({ length: 7 }, () => []);
+    for (const p of posts) buckets[dayIndex(p.features.dayOfWeek)].push(p.algoScore);
+    const rows = buckets.map((scores, i) => ({
+      label: DAY_LABELS[i],
+      n: scores.length,
+      score: scores.length >= MIN_CELL_POSTS ? median(scores) : null,
+    }));
+    const max = Math.max(0, ...rows.map((r) => r.score ?? 0));
+    return { rows, max };
   }, [posts]);
 
   // --- Histograma de AlgoScore ---
@@ -112,14 +159,56 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
 
   return (
     <div className="space-y-8">
-      {/* Heatmap hora x día */}
+      {/* Sin hora en el CSV: agregado por día en vez de heatmap */}
+      {!report.hasTimeOfDay ? (
+        <div className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+          <h2 className="font-semibold">Rendimiento por día de la semana</h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            Mediana de AlgoScore por día. Los días con menos de {MIN_CELL_POSTS}{" "}
+            posts se muestran sin barra: no hay muestra para una mediana.
+          </p>
+          <div className="mt-4 space-y-1.5">
+            {byDay.rows.map((r) => (
+              <div key={r.label} className="flex items-center gap-3 text-xs">
+                <span className="w-20 shrink-0 text-neutral-600 dark:text-neutral-400">
+                  {r.label}
+                </span>
+                <div className="h-4 flex-1 overflow-hidden rounded-sm bg-neutral-100 dark:bg-neutral-900">
+                  {r.score !== null && byDay.max > 0 && (
+                    <div
+                      className="h-full rounded-sm bg-emerald-500"
+                      style={{ width: `${(r.score / byDay.max) * 100}%` }}
+                    />
+                  )}
+                </div>
+                <span className="w-16 shrink-0 text-right font-mono text-neutral-500">
+                  {r.score !== null ? r.score.toFixed(4) : "—"}
+                </span>
+                <span className="w-12 shrink-0 text-right text-neutral-400">
+                  n={r.n}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 rounded bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            <strong>No hay heatmap por hora</strong> porque el export de X
+            Analytics trae la columna <code>Date</code> sin hora del día: todos
+            los posts se parsean a medianoche. Por el mismo motivo se suprimen
+            la cohorte de franja horaria y el hallazgo de publicación en
+            ráfaga, que sin horas contaría como simultáneos todos los posts de
+            un mismo día. Enriquecer el CSV con marcas de tiempo desde la X API
+            reactiva las tres cosas.
+          </p>
+        </div>
+      ) : (
+      /* Heatmap hora x día */
       <div className="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-semibold">Heatmap hora x día</h2>
             <p className="mt-1 text-xs text-neutral-500">
               {heatMode === "score"
-                ? "Mediana de AlgoScore por franja. Verde intenso = mejor rendimiento."
+                ? `Mediana de AlgoScore por franja, solo en celdas con ${MIN_CELL_POSTS}+ posts. Verde intenso = mejor rendimiento.`
                 : "Número de posts publicados por franja. Azul intenso = más volumen."}
             </p>
           </div>
@@ -168,25 +257,30 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
                   {DAYS[di]}
                 </div>
                 {row.map((cell, hi) => {
-                  const hasData = cell.count > 0;
+                  // En modo score solo se pinta si hay mediana (n >= MIN_CELL_POSTS).
+                  // En modo volumen basta con que haya algún post.
+                  const paint =
+                    heatMode === "score" ? cell.score !== null : cell.count > 0;
                   const value =
                     heatMode === "score" ? cell.score ?? 0 : cell.count;
                   const max = heatMode === "score" ? heat.maxScore : heat.maxCount;
-                  const op = hasData ? opacityFor(value, max) : 0;
+                  const op = paint ? opacityFor(value, max) : 0;
                   const baseColor =
                     heatMode === "score" ? "bg-emerald-500" : "bg-blue-500";
+                  const title =
+                    cell.count === 0
+                      ? `${DAYS[di]} ${hi}:00 · sin posts`
+                      : cell.score === null
+                        ? `${DAYS[di]} ${hi}:00 · ${cell.count} post${cell.count === 1 ? "" : "s"} · muestra insuficiente para una mediana (mínimo ${MIN_CELL_POSTS})`
+                        : `${DAYS[di]} ${hi}:00 · ${cell.count} posts · AlgoScore mediano ${cell.score.toFixed(4)}`;
                   return (
                     <div
                       key={hi}
-                      title={
-                        hasData
-                          ? `${DAYS[di]} ${hi}:00, ${cell.count} posts, score mediano ${cell.score?.toFixed(4) ?? "-"}`
-                          : `${DAYS[di]} ${hi}:00, sin posts`
-                      }
+                      title={title}
                       className={`mx-px h-6 flex-1 rounded-sm ${
-                        hasData ? baseColor : "bg-neutral-100 dark:bg-neutral-900"
+                        paint ? baseColor : "bg-neutral-100 dark:bg-neutral-900"
                       }`}
-                      style={hasData ? { opacity: op } : undefined}
+                      style={paint ? { opacity: op } : undefined}
                     />
                   );
                 })}
@@ -195,6 +289,7 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Histograma + Scatter */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -210,7 +305,7 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
                   key={i}
                   className="flex-1 rounded-t-sm bg-neutral-400 dark:bg-neutral-600"
                   style={{ height: `${(c / hist.maxCount) * 100}%` }}
-                  title={`Bin ${i + 1}: ${c} posts`}
+                  title={`AlgoScore ${(hist.min + i * hist.binSize).toFixed(4)} – ${(hist.min + (i + 1) * hist.binSize).toFixed(4)} · ${c} post${c === 1 ? "" : "s"}`}
                 />
               ))}
               {/* Línea de mediana */}
@@ -304,8 +399,8 @@ export function Visualizations({ report }: { report: AnalysisReport }) {
               const maxScore = Math.max(...c.groups.map((g) => g.medianScore));
               return (
                 <div key={c.id}>
-                  <p className="mb-2 text-sm font-medium capitalize">
-                    {c.id}{" "}
+                  <p className="mb-2 text-sm font-medium">
+                    {COHORT_LABELS[c.id] ?? c.id}{" "}
                     <span className="font-normal text-neutral-400">
                       (p = {c.pScore?.toFixed(4)})
                     </span>

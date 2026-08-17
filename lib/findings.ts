@@ -49,6 +49,19 @@ export interface AnalysisReport {
   cohorts: CohortComparison[];
   findings: Finding[];
   burstPenalty: { burstCount: number; estimatedLoss: number };
+  /**
+   * Si el CSV trae hora del día o solo fecha.
+   *
+   * El export de Account Analytics trae una columna `Date` SIN hora, así que
+   * todos los posts se parsean a medianoche. Verificado sobre un export real
+   * de 457 posts: una única hora distinta en todo el fichero.
+   *
+   * Cuando es false, todo lo que dependa de la hora carece de sentido y se
+   * suprime: el hallazgo de ráfagas (sin hora, dos posts del mismo día tienen
+   * marca de tiempo idéntica y parecen simultáneos), la cohorte de franja
+   * horaria y el eje de horas del heatmap.
+   */
+  hasTimeOfDay: boolean;
 }
 
 const SEVERITY_ORDER: Record<Severity, number> = { alta: 0, media: 1, baja: 2 };
@@ -125,18 +138,31 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const coverage = datasetCoverage(rows);
   const proxiedWeight = datasetProxiedWeight(rows);
 
+  // ¿El CSV trae hora del día, o solo fecha? Si todos los posts caen en el
+  // mismo minuto del día, no hay información horaria: el export nativo de
+  // Account Analytics trae `Date` sin hora y todo se parsea a medianoche.
+  const minutesOfDay = new Set(
+    rows.map((r) => r.date.getHours() * 60 + r.date.getMinutes()),
+  );
+  const hasTimeOfDay = minutesOfDay.size > 1;
+
   const cohorts: CohortComparison[] = [
     linkCohort(posts),
     compareBinary(posts, "media", ["con media", "sin media"], (p) => p.features.hasMedia),
     compareBinary(posts, "reply", ["replies", "originales"], (p) => p.features.isReply),
     compareBinary(posts, "hashtag", ["con hashtag", "sin hashtag"], (p) => p.features.hashtagCount > 0),
-    compareGroups(posts, "hora", (p) => {
-      const h = p.features.hourOfDay;
-      if (h < 6) return "madrugada (0-5)";
-      if (h < 12) return "mañana (6-11)";
-      if (h < 18) return "tarde (12-17)";
-      return "noche (18-23)";
-    }),
+    // La cohorte horaria solo tiene sentido si el CSV trae hora.
+    ...(hasTimeOfDay
+      ? [
+          compareGroups(posts, "hora", (p) => {
+            const h = p.features.hourOfDay;
+            if (h < 6) return "madrugada (0-5)";
+            if (h < 12) return "mañana (6-11)";
+            if (h < 18) return "tarde (12-17)";
+            return "noche (18-23)";
+          }),
+        ]
+      : []),
     compareGroups(posts, "dia", (p) =>
       ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][
         p.features.dayOfWeek
@@ -209,8 +235,11 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     });
   }
 
-  // 3. Canibalización por ráfaga
-  if (burstPenalty.burstCount > 0) {
+  // 3. Canibalización por ráfaga.
+  // Requiere hora del día: sin ella, dos posts del mismo día tienen marca de
+  // tiempo idéntica y TODOS parecerían publicados a la vez. Sobre un export
+  // real de 457 posts eso producía 329 "ráfagas" inexistentes.
+  if (hasTimeOfDay && burstPenalty.burstCount > 0) {
     findings.push({
       id: "burst-cannibalization",
       title: "Publicas en ráfaga y te canibalizas el alcance",
@@ -352,5 +381,6 @@ export function analyze(rows: PostRow[]): AnalysisReport {
     cohorts,
     findings,
     burstPenalty,
+    hasTimeOfDay,
   };
 }

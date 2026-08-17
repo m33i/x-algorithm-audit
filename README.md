@@ -358,6 +358,52 @@ Consecuencias, que la herramienta declara en vez de disimular:
 Enriquecer el CSV con una columna de media desde la X API reactiva el filtro
 y separa los dos efectos.
 
+#### Como lo distingue el algoritmo de X (y por que nosotros no)
+
+Merece la pena entenderlo, porque explica que el limite es de acceso al dato,
+no de ingenio, y descarta buscar heuristicas mejores.
+
+X no lo infiere del texto. Cada post candidato lleva un campo booleano
+explicito:
+
+```rust
+// home-mixer/models/candidate.rs:50
+pub has_media: Option<bool>,
+```
+
+Lo rellena un servicio dedicado, no un parser:
+`candidate_hydrators/media_info_hydrator.rs` consulta un
+`MediaInfoCacheClient` que devuelve un `TweetMediaInfo` con el flag ya
+resuelto y las duraciones de video. X pregunta a su propia base de datos de
+media.
+
+Y ese booleano llega al modelo tal cual:
+
+```rust
+// home-mixer/models/candidate.rs:195-200
+tweet_bool_features: Some(TweetBoolFeatures {
+    has_media: self.has_media.unwrap_or(false),
+    is_retweet: self.retweeted_tweet_id.is_some(),
+    is_quote:   self.quoted_tweet_id.is_some(),
+    is_reply:   self.in_reply_to_tweet_id.is_some(),
+    ..Default::default()
+}),
+```
+
+Los cuatro booleanos salen de identificadores estructurados, no del texto.
+Phoenix no adivina si hay una imagen: se lo dicen.
+
+El `t.co` es lo que queda cuando el post se **renderiza a texto**. La
+informacion estructurada —que entidad era ese enlace acortado— se pierde en
+esa proyeccion, y el CSV de Analytics solo entrega la proyeccion. Por eso
+ninguna heuristica sobre el texto o sobre los contadores la recupera.
+
+La via real es la X API v2 con `expansions=attachments.media_keys` o
+`tweet.fields=entities`, que devuelve `urls` y `media` como entidades
+separadas: el mismo dato que el servicio interno le pasa al ranker. Esta
+herramienta no la usa porque no quiere exigir credenciales de API. El limite
+se declara en vez de estimarse.
+
 ### 4. Estimacion del multiplicador de diversidad perdido por rafaga
 
 `ranking_scorer.rs:643-645` aplica el multiplicador `(1 - 0.25) * 0.5^k + 0.25`
