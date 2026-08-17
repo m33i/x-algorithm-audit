@@ -66,10 +66,8 @@ function contrast(
   groups: CohortGroup[],
   a: ScoredPost[],
   b: ScoredPost[],
-  insufficientExtra = false,
 ): CohortComparison {
-  const insufficient =
-    insufficientExtra || a.length < MIN_GROUP_SIZE || b.length < MIN_GROUP_SIZE;
+  const insufficient = a.length < MIN_GROUP_SIZE || b.length < MIN_GROUP_SIZE;
 
   if (insufficient) {
     return {
@@ -122,7 +120,8 @@ export function compareBinary(
 /**
  * Agrupa por una clave categórica y contrasta el grupo de mejor mediana
  * contra el de peor. Los grupos por debajo de MIN_GROUP_SIZE se descartan
- * y marcan la comparación como muestra insuficiente.
+ * de `groups`, pero no invalidan la comparación: `insufficientSample`
+ * depende únicamente de los dos grupos que realmente se contrastan.
  */
 export function compareGroups(
   posts: ScoredPost[],
@@ -138,10 +137,8 @@ export function compareGroups(
   }
 
   const kept: { label: string; posts: ScoredPost[] }[] = [];
-  let dropped = false;
   for (const [label, bucketPosts] of buckets) {
     if (bucketPosts.length >= MIN_GROUP_SIZE) kept.push({ label, posts: bucketPosts });
-    else dropped = true;
   }
 
   const groups = kept
@@ -165,7 +162,7 @@ export function compareGroups(
   const worst = byMedian[0].posts;
   const best = byMedian[byMedian.length - 1].posts;
 
-  return contrast(id, groups, worst, best, dropped);
+  return contrast(id, groups, worst, best);
 }
 
 /**

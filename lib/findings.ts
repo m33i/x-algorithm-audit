@@ -3,6 +3,7 @@ import {
   compareBinary,
   compareGroups,
   linkCohort,
+  MIN_GROUP_SIZE,
   type CohortComparison,
   type ScoredPost,
 } from "./cohorts";
@@ -170,7 +171,12 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const totalLikes = posts.reduce((a, p) => a + (p.row.likes ?? 0), 0);
   const totalReplies = posts.reduce((a, p) => a + (p.row.replies ?? 0), 0);
   const hasReplyData = posts.some((p) => p.row.replies !== null);
-  if (hasReplyData && totalLikes > 0 && totalReplies / totalLikes < 0.05) {
+  if (
+    posts.length >= MIN_GROUP_SIZE &&
+    hasReplyData &&
+    totalLikes > 0 &&
+    totalReplies / totalLikes < 0.05
+  ) {
     findings.push({
       id: "likes-over-replies",
       title: "Estás cultivando likes en vez de replies",
@@ -214,7 +220,12 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   const totalBookmarks = posts.reduce((a, p) => a + (p.row.bookmarks ?? 0), 0);
   const zeroWeightTotal = totalProfileVisits + totalBookmarks;
   const scoringTotal = totalLikes + totalReplies;
-  if (zeroWeightTotal > 0 && scoringTotal > 0 && zeroWeightTotal > scoringTotal) {
+  if (
+    posts.length >= MIN_GROUP_SIZE &&
+    zeroWeightTotal > 0 &&
+    scoringTotal > 0 &&
+    zeroWeightTotal > scoringTotal
+  ) {
     findings.push({
       id: "zero-weight-signals",
       title: "Tu señal más fuerte no puntúa en el ranking",
@@ -234,13 +245,19 @@ export function analyze(rows: PostRow[]): AnalysisReport {
   }
 
   // 5. Alcance desperdiciado
-  if (posts.length >= 10) {
+  if (posts.length >= MIN_GROUP_SIZE) {
     const impressionsP90 = quantile(posts.map((p) => p.row.impressions), 0.9);
     const scoreP25 = quantile(scores, 0.25);
+    const medianImpressions = median(posts.map((p) => p.row.impressions));
+    // "Decil alto de impresiones" solo significa algo si hay dispersión real.
+    // Con impresiones idénticas, p90 == mediana y la condición se cumple para
+    // todos. El factor 2 es un juicio: un post necesita al menos el doble del
+    // alcance típico para que "el sistema le dio distribución" sea justo.
+    const hasSpread = impressionsP90 >= 2 * medianImpressions;
     const wasted = posts.filter(
       (p) => p.row.impressions >= impressionsP90 && p.algoScore <= scoreP25,
     );
-    if (wasted.length > 0) {
+    if (hasSpread && wasted.length >= 2) {
       findings.push({
         id: "wasted-reach",
         title: "Posts que se comieron alcance sin convertirlo",

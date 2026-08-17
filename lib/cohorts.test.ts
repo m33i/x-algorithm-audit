@@ -135,6 +135,20 @@ describe("compareGroups", () => {
     expect(c.groups.map((g) => g.label)).toEqual(["alfa"]);
     expect(c.insufficientSample).toBe(true);
   });
+
+  it("no descarta la comparación cuando los dos grupos contrastados tienen n>=8, aunque exista un tercer bucket pequeño", () => {
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 10; i++) rows.push(post(`a-${i}`, `alfa ${i}`, 50 + i));
+    for (let i = 0; i < 10; i++) rows.push(post(`b-${i}`, `beta ${i}`, 300 + i));
+    // Tercer bucket por debajo de MIN_GROUP_SIZE: debe quedar fuera de
+    // `groups` sin invalidar el contraste entre alfa y beta.
+    for (let i = 0; i < 2; i++) rows.push(post(`c-${i}`, `gamma ${i}`, 900));
+    const scored = scoreAll(rows);
+    const c = compareGroups(scored, "g", (p) => p.row.text.split(" ")[0]);
+    expect(c.groups.map((g) => g.label)).toEqual(["alfa", "beta"]);
+    expect(c.insufficientSample).toBe(false);
+    expect(c.pScore).not.toBeNull();
+  });
 });
 
 describe("linkCohort", () => {

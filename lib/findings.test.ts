@@ -70,6 +70,20 @@ describe("analyze", () => {
     expect(f!.explanation).toContain("0.0");
   });
 
+  it("NO emite likes-over-replies con menos de 8 posts", () => {
+    const rows = Array.from({ length: 5 }, (_, i) =>
+      post({ id: `p${i}`, likes: 1000, replies: 0 }),
+    );
+    expect(analyze(rows).findings.some((f) => f.id === "likes-over-replies")).toBe(false);
+  });
+
+  it("NO emite zero-weight-signals con menos de 8 posts", () => {
+    const rows = Array.from({ length: 5 }, (_, i) =>
+      post({ id: `p${i}`, likes: 5, replies: 0, profileVisits: 400, bookmarks: 300 }),
+    );
+    expect(analyze(rows).findings.some((f) => f.id === "zero-weight-signals")).toBe(false);
+  });
+
   it("detecta ráfagas y estima el multiplicador perdido", () => {
     const base = new Date("2026-08-17T10:00:00Z").getTime();
     const rows = Array.from({ length: 5 }, (_, i) =>
@@ -99,6 +113,32 @@ describe("analyze", () => {
     rows.push(post({ id: "waste1", impressions: 100000, likes: 5, replies: 0 }));
     rows.push(post({ id: "waste2", impressions: 90000, likes: 4, replies: 0 }));
     expect(analyze(rows).findings.some((f) => f.id === "wasted-reach")).toBe(true);
+  });
+
+  it("NO emite wasted-reach cuando las impresiones son uniformes (sin dispersión real)", () => {
+    // Mismo fixture que el hallazgo del impuesto del link: impresiones fijas
+    // en 1000 para todos los posts, pese a la gran dispersión de AlgoScore.
+    // Sin dispersión de impresiones, "decil alto" no significa nada.
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 12; i++) {
+      rows.push(post({ id: `l${i}`, text: `link https://a.com/${i}`, likes: 5 }));
+      rows.push(post({ id: `p${i}`, text: `plano ${i}`, likes: 300 }));
+    }
+    expect(analyze(rows).findings.some((f) => f.id === "wasted-reach")).toBe(false);
+  });
+
+  it("NO emite wasted-reach cuando solo un post cumple el criterio", () => {
+    const rows: PostRow[] = [];
+    for (let i = 0; i < 16; i++) {
+      rows.push(post({ id: `n${i}`, impressions: 1000, likes: 50 }));
+    }
+    // Mucho alcance y buena conversión: no cuenta como desperdicio.
+    rows.push(
+      post({ id: "good-reach", impressions: 100000, likes: 50000, replies: 0 }),
+    );
+    // Mucho alcance y conversión ínfima: el único que cumple el criterio.
+    rows.push(post({ id: "waste1", impressions: 100000, likes: 5, replies: 0 }));
+    expect(analyze(rows).findings.some((f) => f.id === "wasted-reach")).toBe(false);
   });
 
   it("ordena los hallazgos por severidad", () => {
