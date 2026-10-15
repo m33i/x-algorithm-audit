@@ -9,7 +9,7 @@ import {
 
 describe("pesos positivos", () => {
   it("transcribe param.rs", () => {
-    expect(POSITIVE_WEIGHTS.favorite).toBe(0.5);
+    expect(POSITIVE_WEIGHTS.favorite).toBe(0.66);
     expect(POSITIVE_WEIGHTS.reply).toBe(5.0);
     expect(POSITIVE_WEIGHTS.retweet).toBe(1.0);
     expect(POSITIVE_WEIGHTS.quote).toBe(5.0);
@@ -17,34 +17,35 @@ describe("pesos positivos", () => {
     expect(POSITIVE_WEIGHTS.shareViaDm).toBe(5.0);
     expect(POSITIVE_WEIGHTS.shareViaCopyLink).toBe(20.0);
     expect(POSITIVE_WEIGHTS.followAuthor).toBe(4.0);
-    expect(POSITIVE_WEIGHTS.click).toBe(0.4);
+    expect(POSITIVE_WEIGHTS.click).toBe(0.3);
     expect(POSITIVE_WEIGHTS.openLink).toBe(0.2);
     expect(POSITIVE_WEIGHTS.photoExpand).toBe(0.05);
-    expect(POSITIVE_WEIGHTS.videoOpen).toBe(0.05);
-    expect(POSITIVE_WEIGHTS.vqv).toBe(0.05);
+    expect(POSITIVE_WEIGHTS.videoOpen).toBe(0.02);
+    expect(POSITIVE_WEIGHTS.dwell).toBe(0.05);
     expect(POSITIVE_WEIGHTS.quotedClick).toBe(0.05);
-    expect(POSITIVE_WEIGHTS.postUnexplored).toBe(0.02);
+    expect(POSITIVE_WEIGHTS.postUnexplored).toBe(0.015);
   });
 
   it("excluye los pesos a cero", () => {
-    // profile_click, dwell, quoted_vqv y cont_click_dwell_time valen 0.0
-    // en param.rs y no deben existir en la tabla.
+    // profile_click, vqv, quoted_vqv y react_with_video valen 0.0 en
+    // param.rs y no deben existir en la tabla.
     expect(POSITIVE_WEIGHTS).not.toHaveProperty("profileClick");
-    expect(POSITIVE_WEIGHTS).not.toHaveProperty("dwell");
+    expect(POSITIVE_WEIGHTS).not.toHaveProperty("vqv");
+    expect(POSITIVE_WEIGHTS).not.toHaveProperty("reactWithVideo");
     expect(POSITIVE_WEIGHTS).not.toHaveProperty("quotedVqv");
     expect(POSITIVE_WEIGHTS).not.toHaveProperty("bookmark");
   });
 
-  it("suma 43.32, el positive_sum de ranking_scorer.rs", () => {
-    // 8 decimales, no 10: POSITIVE_SUM se acumula en coma flotante y 43.32
-    // no es exactamente representable. 8 basta para distinguirlo de 43.3.
-    expect(POSITIVE_SUM).toBeCloseTo(43.32, 8);
+  it("suma 43.345, el positive_sum de xai-value-model/weights.rs", () => {
+    // 8 decimales, no 10: POSITIVE_SUM se acumula en coma flotante y 43.345
+    // no es exactamente representable. 8 basta para distinguirlo de 43.34.
+    expect(POSITIVE_SUM).toBeCloseTo(43.345, 8);
   });
 });
 
 describe("pesos negativos", () => {
   it("transcribe param.rs", () => {
-    expect(NEGATIVE_WEIGHTS.notInterested).toBe(-43.2);
+    expect(NEGATIVE_WEIGHTS.notInterested).toBe(-52.272);
     expect(NEGATIVE_WEIGHTS.blockAuthor).toBe(-31.2);
     expect(NEGATIVE_WEIGHTS.muteAuthor).toBe(-58.8);
     expect(NEGATIVE_WEIGHTS.report).toBe(-234.0);

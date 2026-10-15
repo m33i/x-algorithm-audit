@@ -82,7 +82,7 @@ export function Report({ report, skippedRows, onReset }: Props) {
         <StatCard
           label="Cobertura"
           value={`${(report.coverage * 100).toFixed(0)}%`}
-          method="Pesos observables desde el CSV ÷ positive_sum (43.32)."
+          method="Pesos observables desde el CSV ÷ positive_sum (43.345)."
         >
           La parte de todo lo que el algoritmo premia que el CSV deja ver. Fuera
           quedan copiar tu enlace y pegarlo en otro sitio (20.0, el peso más

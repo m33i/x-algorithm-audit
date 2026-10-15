@@ -48,7 +48,7 @@ describe("scoreAll", () => {
     const scored = scoreAll([post("a", "hola https://x.com", 100)]);
     expect(scored).toHaveLength(1);
     expect(scored[0].features.hasLink).toBe(true);
-    expect(scored[0].algoScore).toBeCloseTo(0.5 * 0.1, 10);
+    expect(scored[0].algoScore).toBeCloseTo(0.66 * 0.1, 10);
   });
 });
 

@@ -4,7 +4,7 @@ import type { PostRow } from "./types";
 /**
  * Reimplementación de la función de combinación de scores del ranker de X.
  *
- * `param.rs:283-293` advierte explícitamente que los pesos multiplican
+ * `param.rs:295-301` advierte explícitamente que los pesos multiplican
  * *probabilidades predichas*, no contadores brutos, y llama incorrecta la
  * lectura de "un report cancela 468 likes". Por eso dividimos cada acción
  * entre las impresiones: acción/impresiones es la probabilidad empírica.
@@ -36,21 +36,22 @@ const OBSERVABLE: {
   { action: "share", columns: ["shares"] },
   { action: "retweet", columns: ["reposts"] },
   { action: "favorite", columns: ["likes"] },
-  // `quote` (param.rs:358, peso 5.0) no está en el CSV nativo de Account
+  // `quote` (param.rs:370, peso 5.0) no está en el CSV nativo de Account
   // Analytics, pero la X API v2 lo expone como public_metrics.quote_count.
   // Si enriqueces el CSV con una columna `quote_count`, se activa el peso
   // real del algoritmo. Sin esa columna, queda fuera del score real y se
   // cuenta como no observable.
   { action: "quote", columns: ["quoteCount"] },
-  // `click` (param.rs:335) cubre el clic en el post. El CSV expone dos
+  // `click` (param.rs:347) cubre el clic en el post. El CSV expone dos
   // formas observables: Detail Expands (expandir inline) y Permalink
   // Clicks (abrir la página del post). Ambas son la misma acción `click`
   // desde el punto de vista del ranker, así que se suman como una sola
-  // cuenta, sin duplicar el peso 0.4.
+  // cuenta, sin duplicar el peso 0.3.
   { action: "click", columns: ["detailExpands", "permalinkClicks"] },
   { action: "openLink", columns: ["urlClicks"] },
-  // Una sola columna cubre photo_expand, video_open y vqv (0.05 cada una).
-  // Se acredita 0.05 una única vez para no inflar el score.
+  // Una sola columna cubre photo_expand (0.05), video_open (0.02) y vqv
+  // (0.0). Se acredita el 0.05 de photo_expand una única vez para no
+  // inflar el score.
   { action: "photoExpand", columns: ["mediaViews"] },
 ];
 
@@ -77,7 +78,7 @@ const PROXY: {
   },
 ];
 
-/** Suma de los pesos observables: 18.15 de los 43.32 del positive_sum (con quote). */
+/** Suma de los pesos observables: 18.21 de los 43.345 del positive_sum (con quote). */
 export const OBSERVABLE_MAX: number = OBSERVABLE.reduce(
   (acc, { action }) => acc + POSITIVE_WEIGHTS[action],
   0,
@@ -125,7 +126,7 @@ export interface ScoreBreakdown {
    * Para el proxy de bookmarks son los 20.0 de share_via_copy_link.
    *
    * NO es un porcentaje de cobertura: sumar el peso proxy (6.0) al numerador
-   * mezclaría unidades, porque no es un componente de los 43.32 del
+   * mezclaría unidades, porque no es un componente de los 43.345 del
    * denominador. Cuánto captura el proxy es desconocido.
    */
   proxiedWeight: number;

@@ -1,4 +1,11 @@
-const REPO = "https://github.com/xai-org/x-algorithm/blob/main/";
+/**
+ * Commit de xai-org/x-algorithm del que salen los pesos de lib/weights.ts.
+ * Los enlaces van fijados a él y no a `main`, porque xAI publica a menudo y
+ * las líneas se mueven: un `param.rs:320` contra `main` acaba apuntando a otra
+ * cosa en cuanto sale el siguiente commit.
+ */
+export const UPSTREAM_COMMIT = "92f0918f6cb52837cb53a8c790c68f906b2c0db1";
+export const REPO = `https://github.com/xai-org/x-algorithm/blob/${UPSTREAM_COMMIT}/`;
 
 /**
  * Chip de código. Mismo tratamiento que el `code` inline de Markdown.tsx, para

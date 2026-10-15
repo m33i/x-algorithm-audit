@@ -1,4 +1,4 @@
-import { Code, CodeRef } from "./Code";
+import { Code, CodeRef, UPSTREAM_COMMIT } from "./Code";
 
 export function HowItWorks() {
   return (
@@ -34,7 +34,7 @@ export function HowItWorks() {
         <p>El 13 de agosto de 2026 xAI publicó el código que rankea el For You.</p>
         <p className="mt-3">
           Los pesos están en{" "}
-          <CodeRef path="home-mixer/params/param.rs:283-293" label="home-mixer/params/param.rs" />
+          <CodeRef path="home-mixer/params/param.rs:295-301" label="home-mixer/params/param.rs" />
           . Esta herramienta los aplica a tus posts.
         </p>
         <p className="mt-3">
@@ -45,6 +45,28 @@ export function HowItWorks() {
         </p>
         <p className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-mono text-xs text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
           AlgoScore = Σ ( peso × acción ÷ impresiones )
+        </p>
+        <p className="mt-3 rounded-lg border border-neutral-200 px-4 py-3 text-xs dark:border-neutral-800">
+          <strong className="text-neutral-900 dark:text-neutral-100">
+            Actualizado el 15 de octubre de 2026
+          </strong>{" "}
+          al commit{" "}
+          <a
+            href={`https://github.com/xai-org/x-algorithm/commit/${UPSTREAM_COMMIT}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono underline underline-offset-2"
+          >
+            {UPSTREAM_COMMIT.slice(0, 7)}
+          </a>
+          . Desde agosto xAI ha subido el like de 0.5 a 0.66, ha bajado el
+          click de 0.4 a 0.3 y ha endurecido el &ldquo;no me interesa&rdquo;
+          de -43.2 a -52.272. Una reply sigue valiendo 5.0, pero ahora son
+          unos 7.6 likes en vez de 10.{" "}
+          <a href="/readme" className="underline underline-offset-2">
+            Todos los cambios
+          </a>
+          .
         </p>
       </div>
 
@@ -78,7 +100,7 @@ export function HowItWorks() {
           Es una asimetría de acceso, no de ingenio, y se ve en el código
           publicado. Cada post que entra al ranker lleva un campo booleano
           explícito, <Code>has_media</Code>{" "}
-          (<CodeRef path="home-mixer/models/candidate.rs:50" />), que no se
+          (<CodeRef path="home-mixer/models/candidate.rs:83" />), que no se
           infiere del texto: lo rellena un servicio dedicado consultando la
           propia base de datos de media de X{" "}
           (
@@ -93,8 +115,8 @@ export function HowItWorks() {
           <Code>TweetBoolFeatures</Code>{" "}
           (
           <CodeRef
-            path="home-mixer/models/candidate.rs:195-200"
-            label="candidate.rs:195-200"
+            path="home-mixer/models/candidate.rs:340-346"
+            label="candidate.rs:340-346"
           />
           ), junto a <Code>is_retweet</Code>, <Code>is_quote</Code> e{" "}
           <Code>is_reply</Code>. Ninguno de los cuatro sale del texto: salen

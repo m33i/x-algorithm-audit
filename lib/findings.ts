@@ -220,7 +220,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         : "No cambies nada por este hallazgo. Si quieres saber si el mérito es del enlace o de " +
           "la imagen, enriquece el CSV con una columna de media desde la X API: sin ella los " +
           "dos van juntos y no se pueden atribuir por separado.",
-      codeRef: "home-mixer/params/param.rs:336",
+      codeRef: "home-mixer/params/param.rs:348",
     });
   }
 
@@ -243,13 +243,13 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         `(${pct(totalReplies / totalLikes)} de ratio).`,
       explanation:
         `Un like pesa ${POSITIVE_WEIGHTS.favorite} y una reply ${POSITIVE_WEIGHTS.reply}: ` +
-        `un factor de 10. Si la reply viene de alguien que te sigue mutuamente, el boost ` +
-        `bidireccional la lleva a 20.0, un factor de 40. Es el multiplicador más grande ` +
+        `un factor de unos 7.6. Si la reply viene de alguien que te sigue mutuamente, el boost ` +
+        `bidireccional la lleva a 20.0, un factor de unos 30. Es el multiplicador más grande ` +
         `que puedes mover con el contenido.`,
       action:
         "Termina los posts con una pregunta concreta y respondible, toma posiciones discutibles " +
         "en vez de consensos, y responde tú a las replies para alimentar el hilo.",
-      codeRef: "home-mixer/params/param.rs:308-310",
+      codeRef: "home-mixer/params/param.rs:320-327",
     });
   }
 
@@ -278,7 +278,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         `y el suelo está en el 25%. Es una estimación: el decay se aplica sobre el slate del ` +
         `feed, no sobre tu histórico.`,
       action: "Espacia los posts al menos una hora. Si tienes varias ideas, hazlas hilo, no ráfaga.",
-      codeRef: "home-mixer/scorers/ranking_scorer.rs:643-645",
+      codeRef: "xai-value-model/scoring.rs:183-185",
     });
   }
 
@@ -307,7 +307,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         `(${totalBookmarks} bookmarks adicionales, usados como proxy de share_via_copy_link).`,
       explanation:
         `profile_click vale 0.0 en la configuración por defecto del algoritmo ` +
-        `(param.rs:337). bookmarks tampoco aparece en ScoringWeights (peso real ` +
+        `(param.rs:350). bookmarks tampoco aparece en ValueModelWeights (peso real ` +
         `0.0), pero el CSV lo expone y esta herramienta lo usa como proxy ` +
         `aproximado de share_via_copy_link (peso real 20.0) en el AlgoScore+. ` +
         `Las visitas al perfil no sustituyen ninguna señal ponderada: peso real ` +
@@ -316,7 +316,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         "Mide las visitas al perfil como salud de marca, no como objetivo de " +
         "distribución. Los bookmarks sí importan como proxy, pero el algoritmo " +
         "no las pondera directamente.",
-      codeRef: "home-mixer/params/param.rs:337 y home-mixer/scorers/ranking_scorer.rs:18-58",
+      codeRef: "home-mixer/params/param.rs:350 y xai-value-model/weights.rs:7-47",
     });
   }
 
@@ -349,7 +349,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         action:
           "Míralos uno a uno: suelen ser posts que se viralizaron por el titular y decepcionaron " +
           "al leerse. Ese patrón es el que baja tu score medio.",
-        codeRef: "home-mixer/params/param.rs:283-293",
+        codeRef: "home-mixer/params/param.rs:295-301",
       });
     }
   }
@@ -393,7 +393,7 @@ export function analyze(rows: PostRow[]): AnalysisReport {
         "Comparación de medianas con test U de Mann-Whitney sobre tus propios posts. " +
         "Es un patrón empírico de tu cuenta, no una regla del algoritmo.",
       action: meta.action,
-      codeRef: "home-mixer/params/param.rs:283-293",
+      codeRef: "home-mixer/params/param.rs:295-301",
     });
   }
 

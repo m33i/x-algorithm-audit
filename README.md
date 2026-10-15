@@ -30,16 +30,58 @@ Los pesos son una transcripción literal del código publicado por xAI bajo
 licencia Apache 2.0:
 
 - Repositorio: <https://github.com/xai-org/x-algorithm>
+- Commit transcrito: `92f0918` (15 de octubre de 2026)
 - Fichero de pesos: `home-mixer/params/param.rs`
-- Combinación de scores: `home-mixer/scorers/ranking_scorer.rs`
-- Struct `ScoringWeights`: `ranking_scorer.rs:18-58`
-- `positive_sum`, `negative_sum`, `total_sum`: `ranking_scorer.rs:105-128`
-- Multiplicador de diversidad por autor: `ranking_scorer.rs:643-645`
-- Parámetros de diversidad y OON: `param.rs:228-271`
+- Combinación de scores: `xai-value-model/scoring.rs` (`compute_weighted_score`, 69-140)
+- Struct `ValueModelWeights`: `xai-value-model/weights.rs:7-47`
+- `positive_sum`, `negative_sum`, `total_sum`: `xai-value-model/weights.rs:50-82`
+- Multiplicador de diversidad por autor: `xai-value-model/scoring.rs:183-185`
+- Parámetros de diversidad y OON: `vm-ranker/params.rs:175-216`
 
 La sincronización es **manual**: los tests fijan los pesos transcritos, así
 que ningún cambio local pasa desapercibido, pero nada lee `param.rs` en tiempo
 de ejecución. Si xAI cambia un peso, hay que actualizarlo a mano aquí.
+
+### Historial de sincronización
+
+**15 de octubre de 2026, commit `92f0918`.** Primera resincronización desde
+agosto (`c65aa17`). xAI ha publicado 43 commits entre medias, y estos son los
+cambios que afectan a la herramienta:
+
+| Peso                       | Agosto (`c65aa17`) | Ahora (`92f0918`) |
+| -------------------------- | ------------------ | ----------------- |
+| `FavoriteWeight`           | 0.5                | 0.66              |
+| `ClickWeight`              | 0.4                | 0.3               |
+| `VideoOpenWeight`          | 0.05               | 0.02              |
+| `VqvWeight`                | 0.05               | 0.0               |
+| `DwellWeight`              | 0.0                | 0.05              |
+| `PostUnexploredWeight`     | 0.02               | 0.015             |
+| `ContDwellTimeWeight`      | 0.004              | 0.006             |
+| `ContClickDwellTimeWeight` | 0.0                | 0.4               |
+| `NotInterestedWeight`      | -43.2              | -52.272           |
+| `positive_sum`             | 43.32              | 43.345            |
+| `negative_sum`             | 367.22             | 376.292           |
+
+Consecuencias prácticas:
+
+- Una reply ya no vale 10 likes, sino unos 7.6 (y unos 30 con follow mutuo, no
+  40). Sigue siendo el multiplicador más grande que se mueve con el contenido.
+- El AlgoScore de un post sube algo si vive de likes y baja algo si vive de
+  clicks. Los scores de antes y de después de esta fecha no son comparables
+  entre sí; el orden entre tus propios posts casi no cambia.
+- La cobertura apenas se mueve: ~30% con el CSV nativo y ~42% con
+  `quote_count`.
+
+Cambios de estructura en el repo de xAI: `home-mixer/scorers/ranking_scorer.rs`
+ya no existe. La fórmula vive ahora en el crate `xai-value-model/`, y la
+diversidad por autor y los factores OON se aplican en el servicio
+`vm-ranker/`, con los mismos valores que antes. `vm-ranker/params.rs` declara
+además su propio juego de pesos por defecto, algo distinto (like 0.5,
+video_open 0.07, not_interested -47.52). Esta herramienta sigue el de
+`home-mixer/params/param.rs`, que es el que alimenta el `RankingScorer`.
+
+Los enlaces de la web van fijados al commit transcrito, no a `main`, para que
+las líneas citadas no se muevan con el siguiente commit de xAI.
 
 ---
 
@@ -47,36 +89,39 @@ de ejecución. Si xAI cambia un peso, hay que actualizarlo a mano aquí.
 
 | Acción                  | Peso   | Campo del algoritmo         | Referencia        |
 | ----------------------- | ------ | --------------------------- | ----------------- |
-| Favorite / Like         | 0.5    | `FavoriteWeight`            | `param.rs:308`    |
-| Reply                   | 5.0    | `ReplyWeight`               | `param.rs:309`    |
-| Reply con follow mutuo  | +15.0  | `BidirectionalFollowReplyWeightBoost` | `param.rs:311-315` (lleva la reply a 20.0) |
-| Retweet / Repost        | 1.0    | `RetweetWeight`             | `param.rs:322`    |
-| PhotoExpand             | 0.05   | `PhotoExpandWeight`         | `param.rs:323`    |
-| VideoOpen               | 0.05   | `VideoOpenWeight`           | `param.rs:329`    |
-| Click                   | 0.4    | `ClickWeight`               | `param.rs:335`    |
-| OpenLink                | 0.2    | `OpenLinkWeight`            | `param.rs:336`    |
-| ProfileClick            | 0.0    | `ProfileClickWeight`        | `param.rs:337`    |
-| VQV (video_qual_view)   | 0.05   | `VqvWeight`                 | `param.rs:343`    |
-| Share generico          | 2.0    | `ShareWeight`               | `param.rs:344`    |
-| ShareViaDm              | 5.0    | `ShareViaDmWeight`          | `param.rs:345`    |
-| ShareViaCopyLink        | 20.0   | `ShareViaCopyLinkWeight`    | `param.rs:351`    |
-| Dwell                   | 0.0    | `DwellWeight`               | `param.rs:357`    |
-| Quote                   | 5.0    | `QuoteWeight`               | `param.rs:358`    |
-| QuotedClick             | 0.05   | `QuotedClickWeight`         | `param.rs:359`    |
-| QuotedVQV               | 0.0    | `QuotedVqvWeight`           | `param.rs:365`    |
-| FollowAuthor            | 4.0    | `FollowAuthorWeight`        | `param.rs:371`    |
-| PostUnexplored          | 0.02   | `PostUnexploredWeight`      | `param.rs:377`    |
-| ContDwellTime           | 0.004  | `ContDwellTimeWeight`       | `param.rs:401` (continuo, fuera de `positive_sum`) |
-| ContClickDwellTime      | 0.0    | `ContClickDwellTimeWeight`  | `param.rs:407`    |
-| ContActiveSecs5mResidualNorm | 0.0 | `ContActiveSecs5mResidualNormWeight` | `param.rs:443` |
+| Favorite / Like         | 0.66   | `FavoriteWeight`            | `param.rs:320`    |
+| Reply                   | 5.0    | `ReplyWeight`               | `param.rs:321`    |
+| Reply con follow mutuo  | +15.0  | `BidirectionalFollowReplyWeightBoost` | `param.rs:322-327` (lleva la reply a 20.0) |
+| Retweet / Repost        | 1.0    | `RetweetWeight`             | `param.rs:334`    |
+| PhotoExpand             | 0.05   | `PhotoExpandWeight`         | `param.rs:335-340` |
+| VideoOpen               | 0.02   | `VideoOpenWeight`           | `param.rs:341-346` |
+| Click                   | 0.3    | `ClickWeight`               | `param.rs:347`    |
+| OpenLink                | 0.2    | `OpenLinkWeight`            | `param.rs:348`    |
+| ProfileClick            | 0.0    | `ProfileClickWeight`        | `param.rs:349-354` |
+| VQV (video_qual_view)   | 0.0    | `VqvWeight`                 | `param.rs:355`    |
+| Share generico          | 2.0    | `ShareWeight`               | `param.rs:356`    |
+| ShareViaDm              | 5.0    | `ShareViaDmWeight`          | `param.rs:357-362` |
+| ShareViaCopyLink        | 20.0   | `ShareViaCopyLinkWeight`    | `param.rs:363-368` |
+| Dwell                   | 0.05   | `DwellWeight`               | `param.rs:369`    |
+| Quote                   | 5.0    | `QuoteWeight`               | `param.rs:370`    |
+| QuotedClick             | 0.05   | `QuotedClickWeight`         | `param.rs:371-376` |
+| QuotedVQV               | 0.0    | `QuotedVqvWeight`           | `param.rs:377-382` |
+| FollowAuthor            | 4.0    | `FollowAuthorWeight`        | `param.rs:383-388` |
+| PostUnexplored          | 0.015  | `PostUnexploredWeight`      | `param.rs:389-394` |
+| ReactWithVideo          | 0.0    | `ReactWithVideoWeight`      | `param.rs:395-400` |
+| ContDwellTime           | 0.006  | `ContDwellTimeWeight`       | `param.rs:401-406` (continuo, fuera de `positive_sum`) |
+| ContClickDwellTime      | 0.4    | `ContClickDwellTimeWeight`  | `param.rs:407-412` (continuo, fuera de `positive_sum`) |
 
-### `positive_sum` = 43.32
+`ContActiveSecs5mResidualNormWeight`, que en agosto valía 0.0, ya no existe.
 
-Réplica literal de `ranking_scorer.rs:105-126`. Suma de todos los pesos
-positivos distintos de cero, incluyendo `post_unexplored` (0.02) y excluyendo
-`cont_dwell_time` (peso continuo, se aplica aparte). `profile_click` (0.0),
-`dwell` (0.0), `quoted_vqv` (0.0) y `cont_click_dwell_time` (0.0) aparecen en
-la suma del código pero no alteran el total.
+### `positive_sum` = 43.345
+
+Réplica literal de `xai-value-model/weights.rs:50-70`. Suma de todos los pesos
+positivos distintos de cero, incluyendo `post_unexplored` (0.015) y excluyendo
+los pesos continuos `cont_dwell_time` y `cont_click_dwell_time`, que se suman
+al score (`xai-value-model/scoring.rs:112-113`) pero no a `positive_sum`.
+`profile_click` (0.0), `vqv` (0.0), `quoted_vqv` (0.0) y `react_with_video`
+(0.0) aparecen en la suma del código pero no alteran el total.
 
 ---
 
@@ -84,15 +129,15 @@ la suma del código pero no alteran el total.
 
 | Acción         | Peso    | Campo del algoritmo   | Referencia     |
 | -------------- | ------- | --------------------- | -------------- |
-| NotInterested  | -43.2   | `NotInterestedWeight` | `param.rs:451` |
-| BlockAuthor    | -31.2   | `BlockAuthorWeight`   | `param.rs:457` |
-| MuteAuthor     | -58.8   | `MuteAuthorWeight`    | `param.rs:463` |
-| Report         | -234.0  | `ReportWeight`        | `param.rs:468` |
-| NotDwelled     | -0.02   | `NotDwelledWeight`    | `param.rs:470` |
+| NotInterested  | -52.272 | `NotInterestedWeight` | `param.rs:414-419` |
+| BlockAuthor    | -31.2   | `BlockAuthorWeight`   | `param.rs:420-425` |
+| MuteAuthor     | -58.8   | `MuteAuthorWeight`    | `param.rs:426-431` |
+| Report         | -234.0  | `ReportWeight`        | `param.rs:432`     |
+| NotDwelled     | -0.02   | `NotDwelledWeight`    | `param.rs:433-438` |
 
-### `negative_sum` = 367.22
+### `negative_sum` = 376.292
 
-Réplica de `ranking_scorer.rs:127`:
+Réplica de `xai-value-model/weights.rs:72-78`:
 `-(not_interested + block + mute + report + not_dwelled)`.
 
 Ninguno de estos pesos es observable desde el CSV de Analytics ni desde la
@@ -103,14 +148,14 @@ inventarlos.
 
 ## Multiplicador de diversidad por autor
 
-`ranking_scorer.rs:643-645`:
+`xai-value-model/scoring.rs:183-185`:
 
 ```
 diversity_multiplier(decay, floor, k) = (1 - floor) * decay^k + floor
 ```
 
 Con `AuthorDiversityDecay = 0.5` y `AuthorDiversityFloor = 0.25`
-(`param.rs:228-238`):
+(`vm-ranker/params.rs:175-186`):
 
 | k (k-esimo post del mismo autor en un slate) | Multiplicador |
 | --- | --- |
@@ -127,9 +172,9 @@ feed de cada usuario, no sobre el historico de publicacion.
 
 ### Pesos OON (out-of-network)
 
-- `OonWeightFactor = 0.75` (`param.rs:247-251`). Multiplica los pesos de posts
+- `OonWeightFactor = 0.75` (`vm-ranker/params.rs:211-216`). Multiplica los pesos de posts
   fuera de la red del espectador.
-- `TopicOonWeightFactor = 0.5` (`param.rs:267-271`). Idem para topicos OON.
+- `TopicOonWeightFactor = 0.5` (`vm-ranker/params.rs:205-210`). Idem para topicos OON.
 
 No se aplican en el audit porque el CSV no expone a quien se le sirvio cada
 post. Se documentan por completitud.
@@ -140,7 +185,7 @@ post. Se documentan por completitud.
 
 ### La formula del ranker
 
-`param.rs:283-293` advierte que los pesos multiplican probabilidades predichas,
+`param.rs:295-305` advierte que los pesos multiplican probabilidades predichas,
 no contadores brutos. La probabilidad base de un Report es mas de 1000x mas
 baja que la de un Like, por eso su peso es tan alto.
 
@@ -158,7 +203,7 @@ Convierte contadores en probabilidades por espectador, que es lo que hace
 comparables dos posts de alcance muy distinto.
 
 Cuidado con exagerar lo que eso significa. La normalizacion afin que el ranker
-aplica despues (`ranking_scorer.rs:555-558`) si preserva el orden, pero el
+aplica despues (`offset_score`, `xai-value-model/scoring.rs:161-170`) si preserva el orden, pero el
 AlgoScore **no** es monotonamente equivalente al score del ranker: cubre ~30%
 de los pesos positivos y 0% de los negativos, sustituye las probabilidades que
 predice el modelo por tasas empiricas a posteriori, y no aplica los
@@ -175,21 +220,21 @@ acciones del algoritmo:
 | Columna CSV            | Accion del algoritmo | Peso  |
 | ---------------------- | -------------------- | ----- |
 | `impressions`          | (denominador)        | -     |
-| `likes`                | favorite             | 0.5   |
+| `likes`                | favorite             | 0.66  |
 | `replies`              | reply                | 5.0   |
 | `reposts` / `retweets` | retweet              | 1.0   |
 | `shares`               | share                | 2.0   |
 | `new follows`          | followAuthor         | 4.0   |
-| `detail expands` + `permalink clicks` | click | 0.4 (se suman bajo un solo peso, sin duplicar) |
+| `detail expands` + `permalink clicks` | click | 0.3 (se suman bajo un solo peso, sin duplicar) |
 | `url clicks`           | openLink             | 0.2   |
-| `media views`          | photoExpand          | 0.05 (una sola vez, no triplica para video_open + vqv) |
+| `media views`          | photoExpand          | 0.05 (una sola vez, no suma ademas video_open 0.02 ni vqv 0.0) |
 | `bookmarks`            | - (ausente del struct) | 0.0 en el AlgoScore. Proxy 6.0 en el AlgoScore+ |
 | `profile visits`       | profileClick (0.0 en el struct) | 0.0, sin proxy |
 | `engagements`, `hashtag clicks` | -          | informativo, sin peso |
 
 ### `quote` (peso real 5.0)
 
-`QuoteWeight = 5.0` (`param.rs:358`). El CSV nativo de Account Analytics no
+`QuoteWeight = 5.0` (`param.rs:370`). El CSV nativo de Account Analytics no
 expone `quote_count`, asi que el peso real de quote queda fuera del AlgoScore
 por defecto. La X API v2 lo expone como `public_metrics.quote_count`. Si
 enriqueces el CSV con una columna `quote_count` (alias aceptados: `quotecount`,
@@ -206,8 +251,10 @@ desglosa para tus posts:
 | `shareViaCopyLink`  | 20.0  | El `shares` del CSV es un agregado. X no desglosa Copy Link vs DM vs otros. Tiene codigos internos en las URLs de share, pero no los expone. |
 | `shareViaDm`        | 5.0   | Idem. |
 | `quotedClick`       | 0.05  | Requiere contexto del feed del espectador. |
-| `postUnexplored`    | 0.02  | Solo in-network. Requiere contexto del slate. |
-| `contDwellTime`     | 0.004 | El CSV no expone dwell time por post. |
+| `postUnexplored`    | 0.015 | Solo in-network. Requiere contexto del slate. |
+| `dwell`             | 0.05  | El CSV no dice si el lector se detuvo en el post. |
+| `contDwellTime`     | 0.006 | El CSV no expone dwell time por post. |
+| `contClickDwellTime`| 0.4   | Tampoco el tiempo dentro del post tras abrirlo. Continuo, fuera de `positive_sum`. |
 | Todas las negativas | -     | No se desglosan por post para creadores. |
 | `reply` con boost bidireccional | +15.0 (a 20.0) | Requiere saber si el espectador te sigue mutuamente. |
 
@@ -219,8 +266,8 @@ La herramienta lista estas limitaciones de forma explicita.
 cobertura = (pesos reales cuyas columnas estan presentes) / positive_sum
 ```
 
-- CSV nativo completo (sin `quote_count`): 13.15 / 43.32 ~= 30%
-- CSV enriquecido con `quote_count`: 18.15 / 43.32 ~= 42%
+- CSV nativo completo (sin `quote_count`): 13.21 / 43.345 ~= 30%
+- CSV enriquecido con `quote_count`: 18.21 / 43.345 ~= 42%
 
 Es lo que se puede medir contra el algoritmo. El resto es ruido o invencion.
 
@@ -260,7 +307,7 @@ para leerlo o compartirlo despues es la intencion observable mas cercana a
 copiar el enlace.
 
 Precision que importa: `bookmarks` **no aparece** en el struct
-`ScoringWeights` (`ranking_scorer.rs:18-58`), asi que no tiene peso. Eso no
+`ValueModelWeights` (`xai-value-model/weights.rs:7-47`), asi que no tiene peso. Eso no
 es lo mismo que tener peso 0.0, que es el caso de `profile_click`, que si
 esta en el struct puesto a cero.
 
@@ -268,23 +315,23 @@ El peso proxy es 6.0 y es un **juicio**, no una medicion. Nadie ha medido que
 fraccion de `shareViaCopyLink` captura un bookmark, y no existe ninguna
 fuente que fije ese numero. Se eligio por debajo del 20.0 que sustituye para
 no sobreponderar una hipotesis, y por encima de los pesos de acciones baratas
-(click 0.4) para reflejar que guardar señala intencion alta. Es discutible;
+(click 0.3) para reflejar que guardar señala intencion alta. Es discutible;
 lo que no es admisible es presentarlo como un dato del algoritmo.
 
 ### Por que los proxies NO suman a la cobertura
 
-Seria tentador reportar "(13.15 + 6.0) / 43.32 ~= 44% de cobertura". Es
+Seria tentador reportar "(13.21 + 6.0) / 43.345 ~= 44% de cobertura". Es
 incorrecto y se elimino de la herramienta.
 
-El denominador 43.32 es la suma de los pesos reales, y su composicion incluye
+El denominador 43.345 es la suma de los pesos reales, y su composicion incluye
 `shareViaCopyLink: 20.0`. El 6.0 del proxy **no es un componente de esos
-43.32**. Sumarlo al numerador mezcla unidades: el cociente deja de ser
+43.345**. Sumarlo al numerador mezcla unidades: el cociente deja de ser
 fraccion de nada real e infla la cobertura con un numero inventado,
 justamente en la metrica cuya funcion es demostrar honestidad.
 
 Lo que se reporta:
 
-- `coverage` = pesos reales observados / 43.32. CSV nativo: **~30%**. CSV
+- `coverage` = pesos reales observados / 43.345. CSV nativo: **~30%**. CSV
   enriquecido con `quote_count`: **~42%** (ahi si sube, porque `quote` es un
   peso real del algoritmo, no un proxy).
 - `proxiedWeight` = peso real de la señal que se esta estimando. Con
@@ -312,12 +359,12 @@ Descrito arriba, en la seccion Proxies.
 ### 2. Ratio replies / likes
 
 No es un peso del algoritmo. Es un indicador de composicion del engagement.
-Como `reply` pesa 10x `favorite` (5.0 vs 0.5), y hasta 40x con el boost
+Como `reply` pesa unas 7.6x `favorite` (5.0 vs 0.66), y unas 30x con el boost
 bidireccional, un ratio replies/likes por debajo del 5% sugiere cultivo de
 likes baratos en vez de replies caros. El audit emite un hallazgo de severidad
 alta si se da ese patron con muestra suficiente.
 
-Referencia a los pesos reales: `param.rs:308-310`.
+Referencia a los pesos reales: `param.rs:320-327`.
 
 ### 3. Cohortes con test U de Mann-Whitney
 
@@ -396,7 +443,7 @@ X no lo infiere del texto. Cada post candidato lleva un campo booleano
 explicito:
 
 ```rust
-// home-mixer/models/candidate.rs:50
+// home-mixer/models/candidate.rs:83
 pub has_media: Option<bool>,
 ```
 
@@ -409,8 +456,8 @@ media.
 Y ese booleano llega al modelo tal cual:
 
 ```rust
-// home-mixer/models/candidate.rs:195-200
-tweet_bool_features: Some(TweetBoolFeatures {
+// home-mixer/models/candidate.rs:340-346
+tweet_bool_features: Some(xai_recsys_proto::TweetBoolFeatures {
     has_media: self.has_media.unwrap_or(false),
     is_retweet: self.retweeted_tweet_id.is_some(),
     is_quote:   self.quoted_tweet_id.is_some(),
@@ -435,7 +482,7 @@ se declara en vez de estimarse.
 
 ### 4. Estimacion del multiplicador de diversidad perdido por rafaga
 
-`ranking_scorer.rs:643-645` aplica el multiplicador `(1 - 0.25) * 0.5^k + 0.25`
+`xai-value-model/scoring.rs:183-185` aplica el multiplicador `(1 - 0.25) * 0.5^k + 0.25`
 al k-esimo post del mismo autor en un slate. El audit cuenta cuantos posts se
 publicaron a menos de 1 hora del anterior y estima el multiplicador perdido
 acumulado.
@@ -509,12 +556,12 @@ xAI:
 git clone https://github.com/xai-org/x-algorithm
 cd x-algorithm
 grep -n "FavoriteWeight" home-mixer/params/param.rs
-grep -n "positive_sum" home-mixer/scorers/ranking_scorer.rs
+grep -n "positive_sum" xai-value-model/weights.rs
 ```
 
 Los tests de `lib/weights.test.ts` y `lib/scoring.test.ts` fijan los pesos
 transcritos y las sumas, asi que ninguna edicion local pasa desapercibida
-(cambiar `favorite` a 0.6 rompe 12 tests).
+(cambiar `favorite` a 0.6 rompe varios tests).
 
 Lo que **no** hacen: leer `param.rs`. Reafirman los mismos literales que
 declara `lib/weights.ts`, asi que si xAI cambiara un peso manana, todos los
@@ -524,7 +571,7 @@ verificarla a mano cueste diez segundos.
 
 Para reportar discrepancias entre este audit y el codigo oficial, abre un issue
 en este repo con la referencia a la linea de `param.rs` o
-`ranking_scorer.rs`.
+`xai-value-model/`.
 
 ## Licencia
 

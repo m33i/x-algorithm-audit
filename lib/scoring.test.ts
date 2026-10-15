@@ -29,29 +29,29 @@ function post(overrides: Partial<PostRow> = {}): PostRow {
 
 describe("scorePost", () => {
   it("calcula Σ peso × acción/impresiones", () => {
-    // 0.5 * (100/1000) + 5.0 * (10/1000) + 1.0 * (5/1000)
-    // = 0.05 + 0.05 + 0.005 = 0.105
+    // 0.66 * (100/1000) + 5.0 * (10/1000) + 1.0 * (5/1000)
+    // = 0.066 + 0.05 + 0.005 = 0.121
     const s = scorePost(post({ impressions: 1000, likes: 100, replies: 10, reposts: 5 }));
-    expect(s.algoScore).toBeCloseTo(0.105, 10);
+    expect(s.algoScore).toBeCloseTo(0.121, 10);
   });
 
   it("totalScore es algoScore por impresiones", () => {
     const s = scorePost(post({ impressions: 1000, likes: 100, replies: 10, reposts: 5 }));
-    expect(s.totalScore).toBeCloseTo(105, 8);
+    expect(s.totalScore).toBeCloseTo(121, 8);
   });
 
   it("puntúa mejor el post pequeño que convierte", () => {
     const viral = scorePost(post({ impressions: 10000, likes: 300, replies: 5 }));
     const bueno = scorePost(post({ impressions: 500, likes: 20, replies: 18 }));
-    expect(viral.algoScore).toBeCloseTo(0.0175, 10);
-    expect(bueno.algoScore).toBeCloseTo(0.2, 10);
+    expect(viral.algoScore).toBeCloseTo(0.0223, 10);
+    expect(bueno.algoScore).toBeCloseTo(0.2064, 10);
     expect(bueno.algoScore).toBeGreaterThan(viral.algoScore);
   });
 
-  it("una reply pesa 10 veces un like", () => {
+  it("una reply pesa 5.0 / 0.66 ≈ 7.6 veces un like", () => {
     const conLikes = scorePost(post({ impressions: 1000, likes: 10 }));
     const conReplies = scorePost(post({ impressions: 1000, replies: 10 }));
-    expect(conReplies.algoScore / conLikes.algoScore).toBeCloseTo(10, 10);
+    expect(conReplies.algoScore / conLikes.algoScore).toBeCloseTo(5.0 / 0.66, 10);
   });
 
   it("ignora profileVisits: su peso es 0.0", () => {
@@ -60,7 +60,7 @@ describe("scorePost", () => {
     expect(con.algoScore).toBe(sin.algoScore);
   });
 
-  it("ignora bookmarks en el score real: no están en ScoringWeights", () => {
+  it("ignora bookmarks en el score real: no están en ValueModelWeights", () => {
     const sin = scorePost(post({ impressions: 1000, likes: 10 }));
     const con = scorePost(post({ impressions: 1000, likes: 10, bookmarks: 500 }));
     expect(con.algoScore).toBe(sin.algoScore);
@@ -108,16 +108,16 @@ describe("scorePost", () => {
     expect(reply?.points).toBeCloseTo(0.05, 10);
   });
 
-  it("click suma detailExpands + permalinkClicks bajo un solo peso 0.4", () => {
+  it("click suma detailExpands + permalinkClicks bajo un solo peso 0.3", () => {
     const soloDetail = scorePost(post({ impressions: 1000, detailExpands: 50 }));
     const soloPermalink = scorePost(post({ impressions: 1000, permalinkClicks: 50 }));
     const ambos = scorePost(
       post({ impressions: 1000, detailExpands: 30, permalinkClicks: 20 }),
     );
-    expect(soloDetail.algoScore).toBeCloseTo(0.4 * 0.05, 10);
-    expect(soloPermalink.algoScore).toBeCloseTo(0.4 * 0.05, 10);
+    expect(soloDetail.algoScore).toBeCloseTo(0.3 * 0.05, 10);
+    expect(soloPermalink.algoScore).toBeCloseTo(0.3 * 0.05, 10);
     // 50 clicks combinados → misma cuenta que 50 en una sola columna.
-    expect(ambos.algoScore).toBeCloseTo(0.4 * 0.05, 10);
+    expect(ambos.algoScore).toBeCloseTo(0.3 * 0.05, 10);
     // Una sola contribución `click`, sin duplicar el peso.
     expect(ambos.contributions.filter((c) => c.action === "click")).toHaveLength(1);
   });
@@ -128,10 +128,10 @@ describe("scorePost", () => {
 });
 
 describe("cobertura", () => {
-  it("OBSERVABLE_MAX suma 18.15 (incluye quote=5.0)", () => {
-    // reply 5 + follow 4 + quote 5 + share 2 + retweet 1 + fav 0.5
-    // + click 0.4 + openLink 0.2 + media 0.05
-    expect(OBSERVABLE_MAX).toBeCloseTo(18.15, 10);
+  it("OBSERVABLE_MAX suma 18.21 (incluye quote=5.0)", () => {
+    // reply 5 + follow 4 + quote 5 + share 2 + retweet 1 + fav 0.66
+    // + click 0.3 + openLink 0.2 + media 0.05
+    expect(OBSERVABLE_MAX).toBeCloseTo(18.21, 10);
   });
 
   it("con todas las columnas cubre ~42% del espacio de pesos (con quote)", () => {
@@ -147,8 +147,8 @@ describe("cobertura", () => {
       mediaViews: 1,
       quoteCount: 1,
     });
-    expect(scorePost(full).coverage).toBeCloseTo(18.15 / POSITIVE_SUM, 10);
-    expect(scorePost(full).coverage).toBeCloseTo(0.4191, 3);
+    expect(scorePost(full).coverage).toBeCloseTo(18.21 / POSITIVE_SUM, 10);
+    expect(scorePost(full).coverage).toBeCloseTo(0.4201, 3);
   });
 
   it("sin quoteCount la cobertura baja a ~30% (CSV nativo)", () => {
@@ -163,8 +163,8 @@ describe("cobertura", () => {
       urlClicks: 1,
       mediaViews: 1,
     });
-    expect(scorePost(full).coverage).toBeCloseTo(13.15 / POSITIVE_SUM, 10);
-    expect(scorePost(full).coverage).toBeCloseTo(0.3036, 3);
+    expect(scorePost(full).coverage).toBeCloseTo(13.21 / POSITIVE_SUM, 10);
+    expect(scorePost(full).coverage).toBeCloseTo(0.3048, 3);
   });
 
   it("proxiedWeight reporta el peso REAL de la señal estimada, no el proxy", () => {
@@ -199,7 +199,7 @@ describe("cobertura", () => {
 
   it("baja la cobertura cuando faltan columnas", () => {
     const solo = post({ impressions: 1000, likes: 1 });
-    expect(scorePost(solo).coverage).toBeCloseTo(0.5 / POSITIVE_SUM, 10);
+    expect(scorePost(solo).coverage).toBeCloseTo(0.66 / POSITIVE_SUM, 10);
   });
 
   it("datasetCoverage usa la unión de columnas presentes", () => {
@@ -207,7 +207,7 @@ describe("cobertura", () => {
       post({ id: "a", likes: 1 }),
       post({ id: "b", replies: 1 }),
     ];
-    expect(datasetCoverage(rows)).toBeCloseTo(5.5 / POSITIVE_SUM, 10);
+    expect(datasetCoverage(rows)).toBeCloseTo(5.66 / POSITIVE_SUM, 10);
   });
 
   it("datasetCoverage es 0 sin filas", () => {

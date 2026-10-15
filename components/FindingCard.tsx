@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Finding } from "@/lib/findings";
+import { REPO } from "./Code";
 
 const SEVERITY_STYLES: Record<Finding["severity"], string> = {
   alta: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
@@ -40,7 +41,7 @@ export function FindingCard({ finding }: { finding: Finding }) {
           <p className="text-neutral-700 dark:text-neutral-300">{finding.evidence}</p>
           <p className="font-mono text-neutral-500">
             <a
-              href={`https://github.com/xai-org/x-algorithm/blob/main/${finding.codeRef.split(":")[0]}`}
+              href={`${REPO}${finding.codeRef.split(":")[0]}`}
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2"
